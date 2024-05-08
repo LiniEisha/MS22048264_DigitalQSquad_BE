@@ -1,26 +1,43 @@
-// controllers/codeComplexityController.js
 const CodeComplexity = require("../model/codeComplexityModuleModel");
+const fs = require("fs");
+const {
+  calculateCyclomaticComplexity,
+  calculateWeightedCompositeComplexity,
+} = require("../logic/complexityAnalysis");
 
 const createComplexityModule = async (req, res) => {
   try {
     const moduleName = req.body.name;
-    const sourceCode = req.files.sourceCode[0].path;
-    // Placeholder for actual complexity calculation
-    const cyclomaticComplexity = 5;
-    const weightedCompositeComplexity = 10;
-    const complexityLevel = cyclomaticComplexity > 10 ? "High" : "Low";
+    const sourceCodePath = req.files.sourceCode[0].path;
+    const codeContent = fs.readFileSync(sourceCodePath, "utf8");
+
+    // Calculate complexities
+    const cyclomaticComplexity = calculateCyclomaticComplexity(codeContent);
+    const weightedCompositeComplexity =
+      calculateWeightedCompositeComplexity(codeContent);
+
+    // Determine complexity level based on benchmarks
+    let complexityLevel = "Normal";
+    if (cyclomaticComplexity > 10 || weightedCompositeComplexity > 154.75) {
+      complexityLevel = "Complex";
+    }
 
     const newModule = new CodeComplexity({
       name: moduleName,
-      sourceCodePath: sourceCode,
+      sourceCodePath,
       complexityLevel,
       cyclomaticComplexity,
       weightedCompositeComplexity,
-      sourceCode,
+      sourceCode: codeContent, // Storing the source code itself, if necessary
     });
 
     await newModule.save();
-    res.status(201).json({ message: "Module uploaded successfully" });
+    res.status(201).json({
+      message: "Module uploaded successfully",
+      complexityLevel,
+      cyclomaticComplexity,
+      weightedCompositeComplexity,
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
