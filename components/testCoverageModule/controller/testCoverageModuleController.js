@@ -8,15 +8,38 @@ const createCoverageModule = async (req, res) => {
     const automationSuite = req.files.automationSuite[0].path;
     const unitTestSuite = req.files.unitTestSuite[0].path;
 
-    const newModule = new testCoverage({
-      name: moduleName,
-      sourceCodePath: sourceCode,
-      automationSuitePath: automationSuite,
-      unitTestSuitePath: unitTestSuite,
-    });
+    // Execute tests using nyc
+    exec(
+      `nyc --reporter=json mocha ${unitTestSuite} ${automationSuite}`,
+      (error, stdout, stderr) => {
+        if (error) {
+          console.error(`exec error: ${error}`);
+          return res
+            .status(500)
+            .json({ error: `Test execution failed: ${stderr}` });
+        }
 
-    await newModule.save();
-    res.status(201).json({ message: "Module uploaded successfully" });
+        const coverage = JSON.parse(stdout); // Assuming stdout contains JSON coverage results
+        const newModule = new Module({
+          name: moduleName,
+          sourceCodePath: sourceCode,
+          automationSuitePath: automationSuite,
+          unitTestSuitePath: unitTestSuite,
+          totalCoverage: coverage.totalCoverage,
+          totalLines: coverage.totalLines,
+          uncoveredLines: coverage.uncoveredLines,
+          branchesToCover: coverage.branchesToCover,
+          totalUncoveredBranches: coverage.totalUncoveredBranches,
+          branchCoverage: coverage.branchCoverage,
+        });
+
+        newModule.save();
+        res.status(201).json({
+          message: "Module uploaded successfully",
+          coverage: coverage,
+        });
+      }
+    );
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

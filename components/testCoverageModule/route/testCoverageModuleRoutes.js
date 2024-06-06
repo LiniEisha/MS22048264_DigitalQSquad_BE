@@ -1,11 +1,6 @@
 // routes/moduleRoutes.js
 const express = require("express");
-const {
-  createModule,
-  listModules,
-  getCoverageReport,
-  getDetailedCoverageReport,
-} = require("../controller/testCoverageModuleController");
+const { createCoverageModule } = require("../controller/moduleController");
 const multer = require("multer");
 
 const router = express.Router();
@@ -18,6 +13,7 @@ const storage = multer.diskStorage({
     cb(null, file.originalname);
   },
 });
+
 const upload = multer({ storage });
 
 router.post(
@@ -27,11 +23,8 @@ router.post(
     { name: "automationSuite" },
     { name: "unitTestSuite" },
   ]),
-  createModule
+  createCoverageModule
 );
 
-router.get("/modules", listModules);
-router.get("/modules/:id/report", getCoverageReport);
-router.get("/modules/:id/report/detail", getDetailedCoverageReport);
-
+// Other routes...
 module.exports = router;

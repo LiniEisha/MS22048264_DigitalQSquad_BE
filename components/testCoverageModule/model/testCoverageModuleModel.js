@@ -12,10 +12,7 @@ const moduleSchema = new mongoose.Schema({
   branchesToCover: Number,
   totalUncoveredBranches: Number,
   branchCoverage: Number,
-  uncoveredBranchDetails: [String],
-  uncoveredLineDetails: [String],
-  sourceCode: String,
 });
 
 const Module = mongoose.model("testCoverage", moduleSchema);
-module.exports = testCoverage;
+module.exports = Module;
