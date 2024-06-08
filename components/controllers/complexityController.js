@@ -1,5 +1,6 @@
 const acorn = require("acorn");
 const walk = require("acorn-walk");
+const ComplexityResult = require('../models/complexityModel');
 
 function calculateCyclomaticComplexity(sourceCode) {
   const ast = acorn.parse(sourceCode, { ecmaVersion: 2020 });
@@ -16,27 +17,13 @@ function calculateCyclomaticComplexity(sourceCode) {
   ]);
 
   walk.simple(ast, {
-    IfStatement(node) {
-      decisionPoints++;
-    },
-    ForStatement(node) {
-      decisionPoints++;
-    },
-    ForInStatement(node) {
-      decisionPoints++;
-    },
-    ForOfStatement(node) {
-      decisionPoints++;
-    },
-    WhileStatement(node) {
-      decisionPoints++;
-    },
-    DoWhileStatement(node) {
-      decisionPoints++;
-    },
-    SwitchCase(node) {
-      if (node.test !== null) decisionPoints++;
-    },
+    IfStatement(node) { decisionPoints++; },
+    ForStatement(node) { decisionPoints++; },
+    ForInStatement(node) { decisionPoints++; },
+    ForOfStatement(node) { decisionPoints++; },
+    WhileStatement(node) { decisionPoints++; },
+    DoWhileStatement(node) { decisionPoints++; },
+    SwitchCase(node) { if (node.test !== null) decisionPoints++; },
   });
 
   return decisionPoints + 1;
@@ -63,19 +50,47 @@ function calculateWeightedCompositeComplexity(sourceCode) {
     }
 
     weightedComplexity += localWeight;
-    if (node.consequent) {
-      computeWeight(node.consequent, level + 1);
-    }
-    if (node.alternate) {
-      computeWeight(node.alternate, level + 1);
-    }
+    if (node.consequent) computeWeight(node.consequent, level + 1);
+    if (node.alternate) computeWeight(node.alternate, level + 1);
   }
 
   computeWeight(ast);
-  return weightedCompositeComplexity;
+  return weightedComplexity;
 }
 
-module.exports = {
-  calculateCyclomaticComplexity,
-  calculateWeightedCompositeComplexity
+exports.analyzeComplexity = async (req, res) => {
+  try {
+    const { moduleName, sourceCode } = req.body;
+
+    const cyclomaticComplexity = calculateCyclomaticComplexity(sourceCode);
+    const weightedCompositeComplexity = calculateWeightedCompositeComplexity(sourceCode);
+
+    let complexityLevel = "Low";
+    if (cyclomaticComplexity > 10 || weightedCompositeComplexity > 154.75) {
+      complexityLevel = "High";
+    }
+
+    const newResult = new ComplexityResult({
+      moduleName,
+      cyclomaticComplexity,
+      weightedCompositeComplexity,
+      complexityLevel,
+    });
+
+    await newResult.save();
+    res.json({ message: 'Complexity analysis completed successfully', result: newResult });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+};
+
+exports.getResults = async (req, res) => {
+  try {
+    const results = await ComplexityResult.find();
+    res.json(results);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
 };
