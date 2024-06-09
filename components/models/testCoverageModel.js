@@ -1,20 +1,10 @@
-// Module.js
+// models/testCoverageModel.js
 const mongoose = require('mongoose');
 
-const ModuleSchema = new mongoose.Schema({
+const TestCoverageSchema = new mongoose.Schema({
   moduleName: {
     type: String,
     required: true,
-  },
-  sourceCode: {
-    type: String,
-    required: true,
-  },
-  unitTestSuite: {
-    type: String,
-  },
-  automationSuite: {
-    type: String,
   },
   unitTestCoverage: {
     type: Number,
@@ -30,4 +20,4 @@ const ModuleSchema = new mongoose.Schema({
   },
 });
 
-module.exports = mongoose.model('Module', ModuleSchema);
+module.exports = mongoose.model('TestCoverage', TestCoverageSchema);

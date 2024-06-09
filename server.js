@@ -5,6 +5,7 @@ const cors = require('cors');
 const path = require('path');
 const moduleRoutes = require('./components/routes/moduleRoutes');
 const complexityRoutes = require('./components/routes/complexityRoutes'); // Import the complexity routes
+const testCoverageRoutes = require('./components/routes/testCoverageRoutes');
 
 const app = express();
 const PORT = 8000;
@@ -25,7 +26,8 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
 app.use('/api/modules', moduleRoutes);
-app.use('/api/complexity', complexityRoutes); // Add the complexity routes
+app.use('/api/complexity', complexityRoutes); // complexity routes
+app.use('/api/testCoverage', testCoverageRoutes);  
 
 // Start server
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
