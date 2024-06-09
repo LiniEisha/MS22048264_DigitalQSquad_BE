@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
-const ComplexityController = require('../controllers/complexityController');
+const { calculateCyclomaticComplexity, calculateWeightedCompositeComplexity } = require('../controllers/complexityController');
 const ComplexityResult = require('../models/complexityModel');
 const Module = require('../models/Module');
 const { calculateTestCoverage, saveTestCoverage } = require('../controllers/testCoverageController');
@@ -54,8 +54,13 @@ router.post('/upload', upload.fields([
         throw new Error('Source code contains syntax errors.');
       }
 
-      const cyclomaticComplexity = ComplexityController.calculateCyclomaticComplexity(sourceCode);
-      const weightedCompositeComplexity = ComplexityController.calculateWeightedCompositeComplexity(sourceCode);
+      // Before calling the complexity calculation functions
+console.log('Calling calculateCyclomaticComplexity with source code:', sourceCode);
+console.log('Calling calculateWeightedCompositeComplexity with source code:', sourceCode);
+
+
+      const cyclomaticComplexity = calculateCyclomaticComplexity(sourceCode);
+      const weightedCompositeComplexity = calculateWeightedCompositeComplexity(sourceCode);
       let complexityLevel = 'Low';
       if (cyclomaticComplexity > 10 || weightedCompositeComplexity > 154.75) {
         complexityLevel = 'High';
