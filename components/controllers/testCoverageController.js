@@ -41,8 +41,34 @@ const getTestCoverage = async (req, res) => {
   }
 };
 
+const calculateAndSaveCoverage = async (req, res) => {
+  const { moduleName, sourceFilePath, unitTestPath, automationPath } = req.body;
+
+  try {
+    let unitTestCoverage = 0;
+    let automationTestCoverage = 0;
+
+    if (unitTestPath) {
+      unitTestCoverage = await calculateTestCoverage(path.dirname(unitTestPath), 'unitTestSuite');
+    }
+
+    if (automationPath) {
+      automationTestCoverage = await calculateTestCoverage(path.dirname(automationPath), 'automationSuite');
+    }
+
+    const totalCoverage = (unitTestCoverage + automationTestCoverage) / 2;
+
+    const savedCoverage = await saveTestCoverage(moduleName, unitTestCoverage, automationTestCoverage);
+    res.status(201).json({ message: 'Test coverage calculated and saved successfully', coverage: savedCoverage });
+  } catch (error) {
+    console.error('Error calculating and saving test coverage:', error.message);
+    res.status(500).json({ error: 'Error calculating and saving test coverage' });
+  }
+};
+
 module.exports = {
   calculateTestCoverage,
   saveTestCoverage,
   getTestCoverage,
+  calculateAndSaveCoverage,
 };

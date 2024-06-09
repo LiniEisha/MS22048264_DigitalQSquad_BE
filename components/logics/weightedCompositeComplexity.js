@@ -1,41 +1,11 @@
 const acorn = require("acorn");
-const walk = require("acorn-walk");
-const ComplexityResult = require('../models/complexityModel');
 
-// Cyclomatic Complexity Calculation
 function cleanSourceCode(sourceCode) {
   return sourceCode.replace(/`([^`]*)`/g, '""')
                    .replace(/\/\*[^*]*\*+([^/*][^*]*\*+)*\//g, '') 
                    .replace(/\/\/[^\n]*/g, '');
 }
 
-function calculateCyclomaticComplexity(sourceCode) {
-  sourceCode = cleanSourceCode(sourceCode);
-  let ast;
-  try {
-    ast = acorn.parse(sourceCode, { ecmaVersion: 2020, sourceType: 'module' });
-  } catch (error) {
-    console.error('Error parsing source code for cyclomatic complexity:', error.message);
-    throw error;
-  }
-
-  let decisionPoints = 0;
-
-  walk.simple(ast, {
-    IfStatement() { decisionPoints++; },
-    ForStatement() { decisionPoints++; },
-    ForInStatement() { decisionPoints++; },
-    ForOfStatement() { decisionPoints++; },
-    WhileStatement() { decisionPoints++; },
-    DoWhileStatement() { decisionPoints++; },
-    SwitchCase(node) { if (node.test !== null) decisionPoints++; },
-  });
-
-  console.log('Cyclomatic Complexity calculated:', decisionPoints + 1);
-  return decisionPoints + 1;
-}
-
-// Weighted Composite Complexity Calculation
 function calculateWeightedCompositeComplexity(sourceCode) {
   sourceCode = cleanSourceCode(sourceCode);
   let ast;
@@ -207,47 +177,4 @@ function calculateWeightedCompositeComplexity(sourceCode) {
   return weightedComplexity;
 }
 
-// Complexity Controller Methods
-exports.analyzeComplexity = async (req, res) => {
-  try {
-    const { moduleName, sourceCode } = req.body;
-
-    console.log('Analyzing complexity for module:', moduleName);
-    console.log('Source code:', sourceCode);
-
-    const cyclomaticComplexity = calculateCyclomaticComplexity(sourceCode);
-    const weightedCompositeComplexity = calculateWeightedCompositeComplexity(sourceCode);
-
-    let complexityLevel = "Low";
-    if (cyclomaticComplexity > 10 || weightedCompositeComplexity > 154.75) {
-      complexityLevel = "High";
-    }
-
-    console.log(`Cyclomatic Complexity (CC): ${cyclomaticComplexity}`);
-    console.log(`Weighted Composite Complexity (WCC): ${weightedCompositeComplexity}`);
-    console.log(`Complexity Level: ${complexityLevel}`);
-
-    const newResult = new ComplexityResult({
-      moduleName,
-      cyclomaticComplexity,
-      weightedCompositeComplexity,
-      complexityLevel,
-    });
-
-    await newResult.save();
-    res.json({ message: 'Complexity analysis completed successfully', result: newResult });
-  } catch (err) {
-    console.error('Error analyzing complexity:', err.message);
-    res.status(500).send('Server error');
-  }
-};
-
-exports.getResults = async (req, res) => {
-  try {
-    const results = await ComplexityResult.find();
-    res.json(results);
-  } catch (err) {
-    console.error('Error fetching results:', err.message);
-    res.status(500).send('Server error');
-  }
-};
+module.exports = { calculateWeightedCompositeComplexity };
