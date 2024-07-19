@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
-const { calculateCyclomaticComplexity, calculateWeightedCompositeComplexity } = require('../controllers/complexityController');
+const { calculateCyclomaticComplexity, calculateWeightedCompositeComplexity, analyzeComplexity, getResults } = require('../controllers/com');
 const ComplexityResult = require('../models/complexityModel');
 const Module = require('../models/Module');
 const { calculateTestCoverage, saveTestCoverage } = require('../controllers/testCoverageController');
@@ -15,16 +15,22 @@ router.post('/upload', upload.fields([
   { name: 'unitTestSuite', maxCount: 1 },
   { name: 'automationSuite', maxCount: 1 }
 ]), async (req, res) => {
+  // console.log('Upload route accessed');
+  // console.log('Request files:', req.files);
+  // console.log('Request body:', req.body);
+
   const { moduleName } = req.body;
   const sourceFile = req.files.sourceCode ? req.files.sourceCode[0] : null;
   const unitTestFile = req.files.unitTestSuite ? req.files.unitTestSuite[0] : null;
   const automationFile = req.files.automationSuite ? req.files.automationSuite[0] : null;
 
   if (!sourceFile) {
+    console.log('Source file is mandatory.');
     return res.status(400).send({ error: 'Source file is mandatory.' });
   }
 
   if (!unitTestFile && !automationFile) {
+    console.log('At least one of unit test file or automation file is mandatory.');
     return res.status(400).send({ error: 'At least one of unit test file or automation file is mandatory.' });
   }
 
@@ -40,6 +46,7 @@ router.post('/upload', upload.fields([
     });
 
     const savedModule = await newModule.save();
+    console.log('Module saved successfully:', savedModule);
 
     res.status(201).send({ message: 'Upload successful', module: savedModule });
 
@@ -55,9 +62,8 @@ router.post('/upload', upload.fields([
       }
 
       // Before calling the complexity calculation functions
-console.log('Calling calculateCyclomaticComplexity with source code:', sourceCode);
-console.log('Calling calculateWeightedCompositeComplexity with source code:', sourceCode);
-
+      console.log('Calling calculateCyclomaticComplexity with source code:', sourceCode);
+      console.log('Calling calculateWeightedCompositeComplexity with source code:', sourceCode);
 
       const cyclomaticComplexity = calculateCyclomaticComplexity(sourceCode);
       const weightedCompositeComplexity = calculateWeightedCompositeComplexity(sourceCode);
@@ -82,9 +88,9 @@ console.log('Calling calculateWeightedCompositeComplexity with source code:', so
 
     // Test Coverage Calculation
     try {
-      let unitTestCoverage = 0;
-      let automationTestCoverage = 0;
-      
+      let unitTestCoverage = { lineCoverage: 0, branchCoverage: 0 };
+      let automationTestCoverage = { lineCoverage: 0, branchCoverage: 0 };
+
       if (unitTestFile) {
         unitTestCoverage = await calculateTestCoverage(path.dirname(unitTestFile.path), 'unitTestSuite');
       }
@@ -93,11 +99,15 @@ console.log('Calling calculateWeightedCompositeComplexity with source code:', so
         automationTestCoverage = await calculateTestCoverage(path.dirname(automationFile.path), 'automationSuite');
       }
 
-      const totalCoverage = (unitTestCoverage + automationTestCoverage) / 2;
+      const totalLineCoverage = (unitTestCoverage.lineCoverage + automationTestCoverage.lineCoverage) / 2;
+      const totalBranchCoverage = (unitTestCoverage.branchCoverage + automationTestCoverage.branchCoverage) / 2;
 
-      savedModule.unitTestCoverage = unitTestCoverage;
-      savedModule.automationTestCoverage = automationTestCoverage;
-      savedModule.totalCoverage = totalCoverage;
+      savedModule.unitTestLineCoverage = unitTestCoverage.lineCoverage;
+      savedModule.unitTestBranchCoverage = unitTestCoverage.branchCoverage;
+      savedModule.automationLineCoverage = automationTestCoverage.lineCoverage;
+      savedModule.automationBranchCoverage = automationTestCoverage.branchCoverage;
+      savedModule.totalLineCoverage = totalLineCoverage;
+      savedModule.totalBranchCoverage = totalBranchCoverage;
 
       await savedModule.save();
       console.log('Test coverage calculation successful:', savedModule);

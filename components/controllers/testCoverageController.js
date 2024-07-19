@@ -1,32 +1,47 @@
-// controllers/testCoverageController.js
 const path = require('path');
 const { exec } = require('child_process');
 const TestCoverage = require('../models/testCoverageModel');
 
-const calculateTestCoverage = (modulePath, testType) => {
+const calculateTestCoverage = (testFilesPath) => {
   return new Promise((resolve, reject) => {
-    const coverageCommand = `nyc --reporter=json-summary mocha ${modulePath}/${testType}/*.js`;
-    exec(coverageCommand, { cwd: modulePath }, (error, stdout, stderr) => {
+    const nycPath = path.resolve(process.cwd(), 'node_modules/.bin/nyc');
+    const mochaPath = path.resolve(process.cwd(), 'node_modules/.bin/mocha');
+    const coverageCommand = `${nycPath} --reporter=json-summary ${mochaPath} ${testFilesPath}`;
+
+    console.log('Coverage command:', coverageCommand);
+
+    exec(coverageCommand, { cwd: process.cwd() }, (error, stdout, stderr) => {
       if (error) {
+        console.error(`exec error: ${error}`);
         reject(`exec error: ${error}`);
         return;
       }
-      const coveragePath = path.join(modulePath, 'coverage', 'coverage-summary.json');
-      const coverage = require(coveragePath);
-      const totalCoverage = coverage.total.lines.pct;
-      resolve(totalCoverage);
+
+      const coveragePath = path.join(process.cwd(), 'coverage', 'coverage-summary.json');
+      try {
+        const coverage = require(coveragePath);
+        const lineCoverage = coverage.total.lines.pct;
+        const branchCoverage = coverage.total.branches.pct;
+        resolve({ lineCoverage, branchCoverage });
+      } catch (readError) {
+        console.error(`Error reading coverage file: ${readError}`);
+        reject(`Error reading coverage file: ${readError}`);
+      }
     });
   });
 };
 
 const saveTestCoverage = async (moduleName, unitTestCoverage, automationTestCoverage) => {
-  const totalCoverage = (unitTestCoverage + automationTestCoverage) / 2;
+  const totalLineCoverage = (unitTestCoverage.lineCoverage + automationTestCoverage.lineCoverage) / 2;
+  const totalBranchCoverage = (unitTestCoverage.branchCoverage + automationTestCoverage.branchCoverage) / 2;
+
   const newCoverage = new TestCoverage({
     moduleName,
-    unitTestCoverage,
-    automationTestCoverage,
-    totalCoverage,
+    unitTestCoverage: totalLineCoverage,
+    automationTestCoverage: totalBranchCoverage,
+    totalCoverage: (totalLineCoverage + totalBranchCoverage) / 2,
   });
+
   await newCoverage.save();
   return newCoverage;
 };
@@ -42,21 +57,21 @@ const getTestCoverage = async (req, res) => {
 };
 
 const calculateAndSaveCoverage = async (req, res) => {
-  const { moduleName, sourceFilePath, unitTestPath, automationPath } = req.body;
+  const { moduleName, unitTestPath, automationPath } = req.body;
 
   try {
-    let unitTestCoverage = 0;
-    let automationTestCoverage = 0;
+    let unitTestCoverage = { lineCoverage: 0, branchCoverage: 0 };
+    let automationTestCoverage = { lineCoverage: 0, branchCoverage: 0 };
 
     if (unitTestPath) {
-      unitTestCoverage = await calculateTestCoverage(path.dirname(unitTestPath), 'unitTestSuite');
+      console.log(`Unit test path: ${unitTestPath}`);
+      unitTestCoverage = await calculateTestCoverage(unitTestPath);
     }
 
     if (automationPath) {
-      automationTestCoverage = await calculateTestCoverage(path.dirname(automationPath), 'automationSuite');
+      console.log(`Automation test path: ${automationPath}`);
+      automationTestCoverage = await calculateTestCoverage(automationPath);
     }
-
-    const totalCoverage = (unitTestCoverage + automationTestCoverage) / 2;
 
     const savedCoverage = await saveTestCoverage(moduleName, unitTestCoverage, automationTestCoverage);
     res.status(201).json({ message: 'Test coverage calculated and saved successfully', coverage: savedCoverage });
