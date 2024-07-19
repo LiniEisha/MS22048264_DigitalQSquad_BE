@@ -68,8 +68,20 @@ router.post('/upload', upload.fields([
       const cyclomaticComplexity = calculateCyclomaticComplexity(sourceCode);
       const weightedCompositeComplexity = calculateWeightedCompositeComplexity(sourceCode);
       let complexityLevel = 'Low';
-      if (cyclomaticComplexity > 10 || weightedCompositeComplexity > 154.75) {
-        complexityLevel = 'High';
+      if (cyclomaticComplexity > 10) {
+        complexityLevel = "Complex";
+      } else {
+        complexityLevel = "Low";
+      }
+  
+      if (weightedCompositeComplexity <= 46.74) {
+        complexityLevel = "Low";
+      } else if (weightedCompositeComplexity <= 182.58) {
+        complexityLevel = "Moderate";
+      } else if (weightedCompositeComplexity <= 466) {
+        complexityLevel = "Complex";
+      } else {
+        complexityLevel = "High Complex";
       }
 
       const complexityResult = new ComplexityResult({
