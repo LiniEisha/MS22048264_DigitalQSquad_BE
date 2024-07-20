@@ -4,8 +4,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const { calculateCyclomaticComplexity, calculateWeightedCompositeComplexity } = require('../controllers/com');
 const ComplexityResult = require('../models/complexityModel');
-const Module = require('../models/Module');
-const { calculateTestCoverage } = require('../controllers/testCoverageController');
+const TestCoverage = require('../models/testCoverageModel');
 const router = express.Router();
 
 // Configure multer storage to retain original filenames
@@ -47,16 +46,19 @@ router.post('/upload', upload.fields([
   console.log('File paths:', { sourceFilePath, unitTestFilePath, automationFilePath });
 
   try {
-    const newModule = new Module({
+    const newModule = new TestCoverage({
       moduleName,
-      sourceCode: sourceFilePath,
-      unitTestSuite: unitTestFilePath,
-      automationSuite: automationFilePath,
+      unitTestLineCoverage: 0,
+      unitTestBranchCoverage: 0,
+      automationLineCoverage: 0,
+      automationBranchCoverage: 0,
+      totalLineCoverage: 0,
+      totalBranchCoverage: 0,
     });
 
-    const savedModule = await newModule.save();
-    console.log('Module saved successfully:', savedModule);
-    res.status(201).send({ message: 'Upload successful', module: savedModule });
+    await newModule.save();
+    console.log('Module saved successfully:', newModule);
+    res.status(201).send({ message: 'Upload successful', module: newModule });
 
     // Complexity Calculation
     try {
@@ -70,12 +72,12 @@ router.post('/upload', upload.fields([
       } else {
         complexityLevel = "Low";
       }
-  
+
       if (weightedCompositeComplexity <= 46.74) {
         complexityLevel = "Low";
       } else if (weightedCompositeComplexity <= 182.58) {
         complexityLevel = "Moderate";
-      } else if (weightedCompositeComplexity <= 466) {
+      } else if (weightedCompositeCompositeComplexity <= 466) {
         complexityLevel = "Complex";
       } else {
         complexityLevel = "High Complex";
@@ -97,9 +99,6 @@ router.post('/upload', upload.fields([
 
     // Test Coverage Calculation
     try {
-      let unitTestCoverage = { lineCoverage: 0, branchCoverage: 0 };
-      let automationTestCoverage = { lineCoverage: 0, branchCoverage: 0 };
-
       const runCoverageCalculation = async (testFilePath, suiteType) => {
         const testDir = path.dirname(testFilePath);
         const testFileName = path.basename(testFilePath);
@@ -113,7 +112,8 @@ router.post('/upload', upload.fields([
         const coverageDir = path.join(testDir, 'coverage');
         await fs.mkdir(coverageDir, { recursive: true });
 
-        const command = `npx nyc --report-dir=${coverageDir} --reporter=json-summary npx mocha ${testFilePath}`;
+        // Ensure Mocha runs in headless mode (if using any browser-based reporters)
+        const command = `npx nyc --report-dir=${coverageDir} --reporter=json-summary npx mocha ${testFileName} --no-interactive`;
         console.log('Coverage command:', command);
 
         const { exec } = require('child_process');
@@ -145,28 +145,34 @@ router.post('/upload', upload.fields([
         });
       };
 
+      let unitTestCoverage = { lineCoverage: 0, branchCoverage: 0 };
+      let automationTestCoverage = { lineCoverage: 0, branchCoverage: 0 };
+
+      // Calculate Unit Test Coverage
       if (unitTestFile) {
         unitTestCoverage = await runCoverageCalculation(unitTestFilePath, 'unit test');
         console.log('Unit test coverage:', unitTestCoverage);
       }
 
+      // Calculate Automation Test Coverage
       if (automationFile) {
         automationTestCoverage = await runCoverageCalculation(automationFilePath, 'automation test');
         console.log('Automation test coverage:', automationTestCoverage);
       }
 
+      // Combine and Save Coverage Results
       const totalLineCoverage = (unitTestCoverage.lineCoverage + automationTestCoverage.lineCoverage) / 2;
       const totalBranchCoverage = (unitTestCoverage.branchCoverage + automationTestCoverage.branchCoverage) / 2;
 
-      savedModule.unitTestLineCoverage = unitTestCoverage.lineCoverage;
-      savedModule.unitTestBranchCoverage = unitTestCoverage.branchCoverage;
-      savedModule.automationLineCoverage = automationTestCoverage.lineCoverage;
-      savedModule.automationBranchCoverage = automationTestCoverage.branchCoverage;
-      savedModule.totalLineCoverage = totalLineCoverage;
-      savedModule.totalBranchCoverage = totalBranchCoverage;
+      newModule.unitTestLineCoverage = unitTestCoverage.lineCoverage;
+      newModule.unitTestBranchCoverage = unitTestCoverage.branchCoverage;
+      newModule.automationLineCoverage = automationTestCoverage.lineCoverage;
+      newModule.automationBranchCoverage = automationTestCoverage.branchCoverage;
+      newModule.totalLineCoverage = totalLineCoverage;
+      newModule.totalBranchCoverage = totalBranchCoverage;
 
-      await savedModule.save();
-      console.log('Test coverage calculation successful:', savedModule);
+      await newModule.save();
+      console.log('Test coverage calculation successful:', newModule);
 
     } catch (coverageError) {
       console.error('Test coverage calculation failed:', coverageError.message);

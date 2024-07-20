@@ -2,22 +2,13 @@
 const mongoose = require('mongoose');
 
 const TestCoverageSchema = new mongoose.Schema({
-  moduleName: {
-    type: String,
-    required: true,
-  },
-  unitTestCoverage: {
-    type: Number,
-    default: 0,
-  },
-  automationTestCoverage: {
-    type: Number,
-    default: 0,
-  },
-  totalCoverage: {
-    type: Number,
-    default: 0,
-  },
+  moduleName: { type: String, required: true },
+  unitTestLineCoverage: { type: Number, required: true },
+  unitTestBranchCoverage: { type: Number, required: true },
+  automationLineCoverage: { type: Number, required: true },
+  automationBranchCoverage: { type: Number, required: true },
+  totalLineCoverage: { type: Number, required: true },
+  totalBranchCoverage: { type: Number, required: true },
 });
 
 module.exports = mongoose.model('TestCoverage', TestCoverageSchema);
