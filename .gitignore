@@ -10,6 +10,8 @@
 
 #files
 /uploads
+/coverage
+/.nyc_output
 
 # production
 /build
