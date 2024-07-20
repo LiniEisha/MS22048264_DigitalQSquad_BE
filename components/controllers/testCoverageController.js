@@ -2,34 +2,39 @@ const path = require('path');
 const { exec } = require('child_process');
 const TestCoverage = require('../models/testCoverageModel');
 
-const calculateTestCoverage = (testFilesPath) => {
+const calculateTestCoverage = async (testFilePath, suiteType) => {
+  const { exec } = require('child_process');
+  const testDir = path.dirname(testFilePath);
+  const testFileName = path.basename(testFilePath);
   return new Promise((resolve, reject) => {
-    const nycPath = path.resolve(process.cwd(), 'node_modules/.bin/nyc');
-    const mochaPath = path.resolve(process.cwd(), 'node_modules/.bin/mocha');
-    const coverageCommand = `${nycPath} --reporter=json-summary ${mochaPath} ${testFilesPath}`;
+    const command = `npx nyc --reporter=json-summary npx mocha ${testFileName}`;
 
-    console.log('Coverage command:', coverageCommand);
+    console.log('Coverage command:', command);
 
-    exec(coverageCommand, { cwd: process.cwd() }, (error, stdout, stderr) => {
+    exec(command, { cwd: testDir }, (error, stdout, stderr) => {
       if (error) {
-        console.error(`exec error: ${error}`);
-        reject(`exec error: ${error}`);
-        return;
+        console.error('exec error:', error);
+        return reject(error);
       }
 
-      const coveragePath = path.join(process.cwd(), 'coverage', 'coverage-summary.json');
+      console.log('stdout:', stdout);
+      console.log('stderr:', stderr);
+
       try {
-        const coverage = require(coveragePath);
-        const lineCoverage = coverage.total.lines.pct;
-        const branchCoverage = coverage.total.branches.pct;
-        resolve({ lineCoverage, branchCoverage });
-      } catch (readError) {
-        console.error(`Error reading coverage file: ${readError}`);
-        reject(`Error reading coverage file: ${readError}`);
+        const coverageSummary = require(path.join(testDir, 'coverage', 'coverage-summary.json'));
+        const { lines, branches } = coverageSummary.total;
+        resolve({
+          lineCoverage: lines.pct,
+          branchCoverage: branches.pct,
+        });
+      } catch (coverageError) {
+        console.error('Coverage file read error:', coverageError);
+        reject(coverageError);
       }
     });
   });
 };
+
 
 const saveTestCoverage = async (moduleName, unitTestCoverage, automationTestCoverage) => {
   const totalLineCoverage = (unitTestCoverage.lineCoverage + automationTestCoverage.lineCoverage) / 2;

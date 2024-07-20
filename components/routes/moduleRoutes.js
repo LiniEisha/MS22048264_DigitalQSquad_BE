@@ -1,70 +1,67 @@
 const express = require('express');
 const multer = require('multer');
-const fs = require('fs');
+const fs = require('fs').promises;
 const path = require('path');
-const { calculateCyclomaticComplexity, calculateWeightedCompositeComplexity, analyzeComplexity, getResults } = require('../controllers/com');
+const { calculateCyclomaticComplexity, calculateWeightedCompositeComplexity } = require('../controllers/com');
 const ComplexityResult = require('../models/complexityModel');
 const Module = require('../models/Module');
-const { calculateTestCoverage, saveTestCoverage } = require('../controllers/testCoverageController');
+const { calculateTestCoverage } = require('../controllers/testCoverageController');
 const router = express.Router();
 
-const upload = multer({ dest: 'uploads/' });
+// Configure multer storage to retain original filenames
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    cb(null, file.originalname);
+  }
+});
+
+const upload = multer({ storage });
 
 router.post('/upload', upload.fields([
   { name: 'sourceCode', maxCount: 1 },
   { name: 'unitTestSuite', maxCount: 1 },
   { name: 'automationSuite', maxCount: 1 }
 ]), async (req, res) => {
-  // console.log('Upload route accessed');
-  // console.log('Request files:', req.files);
-  // console.log('Request body:', req.body);
-
   const { moduleName } = req.body;
   const sourceFile = req.files.sourceCode ? req.files.sourceCode[0] : null;
   const unitTestFile = req.files.unitTestSuite ? req.files.unitTestSuite[0] : null;
   const automationFile = req.files.automationSuite ? req.files.automationSuite[0] : null;
 
+  console.log('Received files:', { sourceFile, unitTestFile, automationFile });
+
   if (!sourceFile) {
-    console.log('Source file is mandatory.');
     return res.status(400).send({ error: 'Source file is mandatory.' });
   }
 
   if (!unitTestFile && !automationFile) {
-    console.log('At least one of unit test file or automation file is mandatory.');
     return res.status(400).send({ error: 'At least one of unit test file or automation file is mandatory.' });
   }
 
-  const sourceFilePath = sourceFile.path;
+  const sourceFilePath = path.resolve(sourceFile.path);
+  const unitTestFilePath = unitTestFile ? path.resolve(unitTestFile.path) : null;
+  const automationFilePath = automationFile ? path.resolve(automationFile.path) : null;
+
+  console.log('File paths:', { sourceFilePath, unitTestFilePath, automationFilePath });
 
   try {
-    // Save new module
     const newModule = new Module({
       moduleName,
       sourceCode: sourceFilePath,
-      unitTestSuite: unitTestFile ? unitTestFile.path : null,
-      automationSuite: automationFile ? automationFile.path : null,
+      unitTestSuite: unitTestFilePath,
+      automationSuite: automationFilePath,
     });
 
     const savedModule = await newModule.save();
     console.log('Module saved successfully:', savedModule);
-
     res.status(201).send({ message: 'Upload successful', module: savedModule });
 
     // Complexity Calculation
     try {
-      const sourceCode = fs.readFileSync(sourceFilePath, 'utf8');
-      console.log('Received module name:', moduleName);
-      console.log('Received source code:', sourceCode);
-
-      // Validate the source code
-      if (!isValidSourceCode(sourceCode)) {
-        throw new Error('Source code contains syntax errors.');
-      }
-
-      // Before calling the complexity calculation functions
-      console.log('Calling calculateCyclomaticComplexity with source code:', sourceCode);
-      console.log('Calling calculateWeightedCompositeComplexity with source code:', sourceCode);
-
+      const sourceCode = await fs.readFile(sourceFilePath, 'utf8');
+      console.log('Source code:', sourceCode);
       const cyclomaticComplexity = calculateCyclomaticComplexity(sourceCode);
       const weightedCompositeComplexity = calculateWeightedCompositeComplexity(sourceCode);
       let complexityLevel = 'Low';
@@ -103,12 +100,59 @@ router.post('/upload', upload.fields([
       let unitTestCoverage = { lineCoverage: 0, branchCoverage: 0 };
       let automationTestCoverage = { lineCoverage: 0, branchCoverage: 0 };
 
+      const runCoverageCalculation = async (testFilePath, suiteType) => {
+        const testDir = path.dirname(testFilePath);
+        const testFileName = path.basename(testFilePath);
+        const sourceFileName = path.basename(sourceFile.path);
+        const targetSourcePath = path.join(testDir, sourceFileName);
+
+        console.log(`Copying source file to ${suiteType} directory:`, targetSourcePath);
+        await fs.copyFile(sourceFilePath, targetSourcePath);
+
+        console.log(`Calculating ${suiteType} coverage`);
+        const coverageDir = path.join(testDir, 'coverage');
+        await fs.mkdir(coverageDir, { recursive: true });
+
+        const command = `npx nyc --report-dir=${coverageDir} --reporter=json-summary npx mocha ${testFilePath}`;
+        console.log('Coverage command:', command);
+
+        const { exec } = require('child_process');
+        return new Promise((resolve, reject) => {
+          exec(command, { cwd: testDir }, async (error, stdout, stderr) => {
+            if (error) {
+              console.error('exec error:', error);
+              console.log('stderr:', stderr);
+              return reject(error);
+            }
+
+            console.log('stdout:', stdout);
+
+            try {
+              const coverageSummaryPath = path.join(coverageDir, 'coverage-summary.json');
+              const coverageSummary = require(coverageSummaryPath);
+              const { lines, branches } = coverageSummary.total;
+              resolve({
+                lineCoverage: lines.pct,
+                branchCoverage: branches.pct,
+              });
+            } catch (coverageError) {
+              console.error('Coverage file read error:', coverageError);
+              reject(coverageError);
+            } finally {
+              await fs.unlink(targetSourcePath);
+            }
+          });
+        });
+      };
+
       if (unitTestFile) {
-        unitTestCoverage = await calculateTestCoverage(path.dirname(unitTestFile.path), 'unitTestSuite');
+        unitTestCoverage = await runCoverageCalculation(unitTestFilePath, 'unit test');
+        console.log('Unit test coverage:', unitTestCoverage);
       }
 
       if (automationFile) {
-        automationTestCoverage = await calculateTestCoverage(path.dirname(automationFile.path), 'automationSuite');
+        automationTestCoverage = await runCoverageCalculation(automationFilePath, 'automation test');
+        console.log('Automation test coverage:', automationTestCoverage);
       }
 
       const totalLineCoverage = (unitTestCoverage.lineCoverage + automationTestCoverage.lineCoverage) / 2;
@@ -132,20 +176,20 @@ router.post('/upload', upload.fields([
     console.error('File upload failed:', uploadError.message);
     res.status(500).send({ error: 'Error uploading files' });
   } finally {
-    if (sourceFile) fs.unlinkSync(sourceFilePath);
-    if (unitTestFile) fs.unlinkSync(unitTestFile.path);
-    if (automationFile) fs.unlinkSync(automationFile.path);
+    try {
+      if (sourceFile) {
+        await fs.unlink(sourceFilePath);
+      }
+      if (unitTestFile) {
+        await fs.unlink(unitTestFilePath);
+      }
+      if (automationFile) {
+        await fs.unlink(automationFilePath);
+      }
+    } catch (cleanupError) {
+      console.error('Error during cleanup:', cleanupError.message);
+    }
   }
 });
-
-// Helper function to validate source code
-function isValidSourceCode(sourceCode) {
-  try {
-    new Function(sourceCode);
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
 
 module.exports = router;

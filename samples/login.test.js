@@ -1,20 +1,25 @@
 // File: login.test.js
-const login = require('./login');
+(async () => {
+    const { expect } = await import('chai');
+    const login = require('./login');
 
-test('successful login', () => {
-    const result = login('user', 'password');
-    expect(result.status).toBe('success');
-    expect(result.message).toBe('Login successful');
-});
+    describe('Login Function', () => {
+        it('should login successfully with correct username and password', () => {
+            const result = login('user', 'password');
+            expect(result.status).to.equal('success');
+            expect(result.message).to.equal('Login successful');
+        });
 
-test('failed login with incorrect username', () => {
-    const result = login('wrongUser', 'password');
-    expect(result.status).toBe('error');
-    expect(result.message).toBe('Invalid username or password');
-});
+        it('should fail login with incorrect username', () => {
+            const result = login('wrongUser', 'password');
+            expect(result.status).to.equal('error');
+            expect(result.message).to.equal('Invalid username or password');
+        });
 
-test('failed login with incorrect password', () => {
-    const result = login('user', 'wrongPassword');
-    expect(result.status).toBe('error');
-    expect(result.message).toBe('Invalid username or password');
-});
+        it('should fail login with incorrect password', () => {
+            const result = login('user', 'wrongPassword');
+            expect(result.status).to.equal('error');
+            expect(result.message).to.equal('Invalid username or password');
+        });
+    });
+})();
