@@ -17,6 +17,10 @@ const ComplexityResultSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  sourceCode: {  // field to store source code
+    type: String,
+    required: true,
+  }
 });
 
 module.exports = mongoose.model('ComplexityResult', ComplexityResultSchema);

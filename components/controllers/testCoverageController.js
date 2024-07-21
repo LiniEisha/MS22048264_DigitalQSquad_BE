@@ -42,11 +42,14 @@ const saveTestCoverage = async (moduleName, unitTestCoverage, automationTestCove
 
   const newCoverage = new TestCoverage({
     moduleName,
-    unitTestCoverage: totalLineCoverage,
-    automationTestCoverage: totalBranchCoverage,
-    totalCoverage: (totalLineCoverage + totalBranchCoverage) / 2,
+    unitTestLineCoverage: unitTestCoverage.lineCoverage,
+    unitTestBranchCoverage: unitTestCoverage.branchCoverage,
+    automationLineCoverage: automationTestCoverage.lineCoverage,
+    automationBranchCoverage: automationTestCoverage.branchCoverage,
+    totalLineCoverage,
+    totalBranchCoverage,
+    sourceCode,  // Save source code
   });
-
   await newCoverage.save();
   return newCoverage;
 };

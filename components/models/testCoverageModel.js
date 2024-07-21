@@ -9,6 +9,7 @@ const TestCoverageSchema = new mongoose.Schema({
   automationBranchCoverage: { type: Number, required: true },
   totalLineCoverage: { type: Number, required: true },
   totalBranchCoverage: { type: Number, required: true },
+  sourceCode: { type: String, required: true },
 });
 
 module.exports = mongoose.model('TestCoverage', TestCoverageSchema);
