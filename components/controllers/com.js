@@ -11,6 +11,7 @@ function cleanSourceCode(sourceCode) {
 
 function calculateCyclomaticComplexity(sourceCode) {
   sourceCode = cleanSourceCode(sourceCode);
+  console.log('Cleaned Source Code:', sourceCode);
   let ast;
   try {
     ast = acorn.parse(sourceCode, { ecmaVersion: 2020, sourceType: 'module' });
@@ -22,21 +23,24 @@ function calculateCyclomaticComplexity(sourceCode) {
   let decisionPoints = 0;
 
   walk.simple(ast, {
-    IfStatement() { decisionPoints++; },
-    ForStatement() { decisionPoints++; },
-    ForInStatement() { decisionPoints++; },
-    ForOfStatement() { decisionPoints++; },
-    WhileStatement() { decisionPoints++; },
-    DoWhileStatement() { decisionPoints++; },
-    SwitchCase(node) { if (node.test !== null) decisionPoints++; },
+    IfStatement() { decisionPoints++; console.log('IfStatement encountered.'); },
+    ForStatement() { decisionPoints++; console.log('ForStatement encountered.'); },
+    ForInStatement() { decisionPoints++; console.log('ForInStatement encountered.'); },
+    ForOfStatement() { decisionPoints++; console.log('ForOfStatement encountered.'); },
+    WhileStatement() { decisionPoints++; console.log('WhileStatement encountered.'); },
+    DoWhileStatement() { decisionPoints++; console.log('DoWhileStatement encountered.'); },
+    SwitchCase(node) { if (node.test !== null) decisionPoints++; console.log('SwitchCase encountered.'); },
   });
 
+  console.log('Total Decision Points:', decisionPoints);
   return decisionPoints + 1;
 }
 
 // Weighted Composite Complexity Calculation
 function tokenize(line) {
-  return line.match(/(?<!\breturn\b)(?<!\btry\b)(\b(int|float|double|char|void|short|long|signed|unsigned|if|for|while|switch|case|default|break|continue|goto|sizeof|typedef|extern|register|static|auto|const|volatile|inline|restrict|else|do|catch)\b|\b[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\)|\b[A-Za-z_][A-Za-z0-9_]*\[\b|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\b\d+(\.\d+)?\b|[\+\-\*\/=<>!&|]+|\.)/g) || [];
+  const tokens = line.match(/(?<!\breturn\b)(?<!\btry\b)(\b(int|float|double|char|void|short|long|signed|unsigned|if|for|while|switch|case|default|break|continue|goto|sizeof|typedef|extern|register|static|auto|const|volatile|inline|restrict|else|do|catch)\b|\b[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\)|\b[A-Za-z_][A-Za-z0-9_]*\[\b|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\b\d+(\.\d+)?\b|[\+\-\*\/=<>!&|]+|\.)/g) || [];
+  console.log('Tokens:', tokens);
+  return tokens;
 }
 
 function calculateWt(line, nestingLevel, inheritanceLevel) {
@@ -56,6 +60,7 @@ function calculateWt(line, nestingLevel, inheritanceLevel) {
     }
     let wn = nestingLevel;
     let wt = wc + wn + wi;
+    console.log('wt:', wt);
     return wt;
 }
 
@@ -63,6 +68,9 @@ function calculateWcc(line, nestingLevel, inheritanceLevel) {
     const tokens = tokenize(line);
     const s = tokens.length;
     const wt = calculateWt(line, nestingLevel, inheritanceLevel);
+    console.log('Tokens:', tokens);
+    console.log('S:', s);
+    console.log('Wt:', wt);
     return s * wt;
 }
 
@@ -80,16 +88,20 @@ function processCode(code) {
         }
         let wcc = calculateWcc(line, nestingLevel, inheritanceLevel);
         wccValues.push(wcc);
+        console.log('Wcc for line:', wcc);
         if (strippedLine.endsWith('{')) {
             nestingLevel++;
         }
     }
+    console.log('Wcc Values:', wccValues);
     return wccValues;
 }
 
 function calculateWeightedCompositeComplexity(sourceCode) {
     const wccValues = processCode(sourceCode);
-    return wccValues.reduce((acc, val) => acc + val, 0);
+    const totalWcc = wccValues.reduce((acc, val) => acc + val, 0);
+    console.log('Total Wcc:', totalWcc);
+    return totalWcc;
 }
 
 // Export the functions
@@ -101,8 +113,12 @@ exports.analyzeComplexity = async (req, res) => {
   try {
     const { moduleName, sourceCode } = req.body;
 
+    console.log('Analyzing complexity for module:', moduleName);
     const cyclomaticComplexity = calculateCyclomaticComplexity(sourceCode);
+    console.log('Cyclomatic Complexity:', cyclomaticComplexity);
+
     const weightedCompositeComplexity = calculateWeightedCompositeComplexity(sourceCode);
+    console.log('Weighted Composite Complexity:', weightedCompositeComplexity);
 
     let complexityLevel = "Low";
 
@@ -122,6 +138,8 @@ exports.analyzeComplexity = async (req, res) => {
       complexityLevel = "High Complex";
     }
 
+    console.log('Complexity Level:', complexityLevel);
+
     const newResult = new ComplexityResult({
       moduleName,
       cyclomaticComplexity,
@@ -131,6 +149,7 @@ exports.analyzeComplexity = async (req, res) => {
     });
 
     await newResult.save();
+    console.log('Complexity analysis saved:', newResult);
     res.json({ message: 'Complexity analysis completed successfully', result: newResult });
   } catch (err) {
     console.error('Error analyzing complexity:', err.message);
@@ -141,6 +160,7 @@ exports.analyzeComplexity = async (req, res) => {
 exports.getResults = async (req, res) => {
   try {
     const results = await ComplexityResult.find();
+    console.log('Fetched results:', results);
     res.json(results);
   } catch (err) {
     console.error('Error fetching results:', err.message);

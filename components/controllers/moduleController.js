@@ -1,6 +1,3 @@
-const Module = require('../models/Module');
-const fs = require('fs').promises;
-
 exports.uploadModule = async (req, res) => {
   try {
     const { moduleName } = req.body;

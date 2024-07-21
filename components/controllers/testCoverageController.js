@@ -14,6 +14,7 @@ const calculateTestCoverage = async (testFilePath, suiteType) => {
     exec(command, { cwd: testDir }, (error, stdout, stderr) => {
       if (error) {
         console.error('exec error:', error);
+        console.log('stderr:', stderr);
         return reject(error);
       }
 
@@ -22,6 +23,7 @@ const calculateTestCoverage = async (testFilePath, suiteType) => {
 
       try {
         const coverageSummary = require(path.join(testDir, 'coverage', 'coverage-summary.json'));
+        console.log('Coverage Summary:', coverageSummary);
         const { lines, branches } = coverageSummary.total;
         resolve({
           lineCoverage: lines.pct,
@@ -34,7 +36,6 @@ const calculateTestCoverage = async (testFilePath, suiteType) => {
     });
   });
 };
-
 
 const saveTestCoverage = async (moduleName, unitTestCoverage, automationTestCoverage) => {
   const totalLineCoverage = (unitTestCoverage.lineCoverage + automationTestCoverage.lineCoverage) / 2;
@@ -73,13 +74,16 @@ const calculateAndSaveCoverage = async (req, res) => {
 
     if (unitTestPath) {
       console.log(`Unit test path: ${unitTestPath}`);
-      unitTestCoverage = await calculateTestCoverage(unitTestPath);
+      unitTestCoverage = await calculateTestCoverage(unitTestPath, 'unit test');
     }
 
     if (automationPath) {
       console.log(`Automation test path: ${automationPath}`);
-      automationTestCoverage = await calculateTestCoverage(automationPath);
+      automationTestCoverage = await calculateTestCoverage(automationPath, 'automation test');
     }
+
+    console.log('Unit Test Coverage:', unitTestCoverage);
+    console.log('Automation Test Coverage:', automationTestCoverage);
 
     const savedCoverage = await saveTestCoverage(moduleName, unitTestCoverage, automationTestCoverage);
     res.status(201).json({ message: 'Test coverage calculated and saved successfully', coverage: savedCoverage });
