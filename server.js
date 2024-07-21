@@ -42,8 +42,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
 app.use('/api/modules', moduleRoutes);
-app.use('/api/complexity', complexityRoutes);
+app.use('/api/complexity', complexityRoutes); 
 app.use('/api/testCoverage', testCoverageRoutes);
-
 // Start server
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

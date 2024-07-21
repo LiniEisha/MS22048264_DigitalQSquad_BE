@@ -86,9 +86,27 @@ const calculateAndSaveCoverage = async (req, res) => {
   }
 };
 
+const getCoverageById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`Fetching details for ID: ${id}`);
+    const result = await TestCoverage.findById(id);
+    if (!result) {
+      console.log('Module not found');
+      return res.status(404).send({ error: 'Module not found' });
+    }
+    console.log('Module found:', result);
+    res.json(result);
+  } catch (err) {
+    console.error('Error fetching module details:', err.message);
+    res.status(500).send('Server error');
+  }
+};
+
 module.exports = {
   calculateTestCoverage,
   saveTestCoverage,
   getTestCoverage,
   calculateAndSaveCoverage,
+  getCoverageById,
 };

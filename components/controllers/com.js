@@ -35,14 +35,10 @@ function calculateCyclomaticComplexity(sourceCode) {
 }
 
 // Weighted Composite Complexity Calculation
-// function tokenize(line) {
-//   return line.match(/[a-zA-Z_]\w*|'.*?'|".*?"|\d+|[^\w\s]/g) || [];
-// }
-
 function tokenize(line) {
   return line.match(/(?<!\breturn\b)(?<!\btry\b)(\b(int|float|double|char|void|short|long|signed|unsigned|if|for|while|switch|case|default|break|continue|goto|sizeof|typedef|extern|register|static|auto|const|volatile|inline|restrict|else|do|catch)\b|\b[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\)|\b[A-Za-z_][A-Za-z0-9_]*\[\b|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\b\d+(\.\d+)?\b|[\+\-\*\/=<>!&|]+|\.)/g) || [];
-  console.log(line);
 }
+
 function calculateWt(line, nestingLevel, inheritanceLevel) {
     const controlStructureWeights = {
         'if': 1, 'else': 1, 'for': 2, 'while': 2, 'do': 2, 'switch': 1,
@@ -51,8 +47,6 @@ function calculateWt(line, nestingLevel, inheritanceLevel) {
     let wc = 0;
     let wi = inheritanceLevel;
     const tokens = tokenize(line);
-    console.log(line);
-    console.log(tokens);
     for (let token of tokens) {
         if (controlStructureWeights[token] !== undefined) {
             wc += controlStructureWeights[token];
@@ -133,6 +127,7 @@ exports.analyzeComplexity = async (req, res) => {
       cyclomaticComplexity,
       weightedCompositeComplexity,
       complexityLevel,
+      sourceCode  // Ensure the source code is stored
     });
 
     await newResult.save();
@@ -143,13 +138,29 @@ exports.analyzeComplexity = async (req, res) => {
   }
 };
 
-
 exports.getResults = async (req, res) => {
   try {
     const results = await ComplexityResult.find();
     res.json(results);
   } catch (err) {
     console.error('Error fetching results:', err.message);
+    res.status(500).send('Server error');
+  }
+};
+
+exports.getComplexityById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`Fetching details for ID: ${id}`);
+    const result = await ComplexityResult.findById(id);
+    if (!result) {
+      console.log('Module not found');
+      return res.status(404).send({ error: 'Module not found' });
+    }
+    console.log('Module found:', result);
+    res.json(result);
+  } catch (err) {
+    console.error('Error fetching module details:', err.message);
     res.status(500).send('Server error');
   }
 };
