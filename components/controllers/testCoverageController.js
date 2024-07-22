@@ -24,10 +24,17 @@ const calculateTestCoverage = async (testFilePath, suiteType) => {
       try {
         const coverageSummary = require(path.join(testDir, 'coverage', 'coverage-summary.json'));
         const coverageReport = require(path.join(testDir, 'coverage', 'coverage-final.json'));
-        console.log('Coverage Summary:', coverageSummary);
-        console.log('Coverage Report:', coverageReport); // Log coverage report
+
+        // Log detailed coverage report
+        console.log('Coverage Summary:', JSON.stringify(coverageSummary, null, 2));
+        console.log('Coverage Report:', JSON.stringify(coverageReport, null, 2));
+
+        const { lines, branches } = coverageSummary.total;
+        console.log('Branch Coverage:', branches.pct); // Log branch coverage
+
         resolve({
-          summary: coverageSummary,
+          lineCoverage: lines.pct,
+          branchCoverage: branches.pct,
           report: coverageReport,
         });
       } catch (coverageError) {
@@ -37,6 +44,7 @@ const calculateTestCoverage = async (testFilePath, suiteType) => {
     });
   });
 };
+
 
 const saveTestCoverage = async (moduleName, unitTestCoverage, automationTestCoverage, annotatedSourceCode, sourceCodePath) => {
   const totalLineCoverage = (unitTestCoverage.lineCoverage + automationTestCoverage.lineCoverage) / 2;
@@ -130,8 +138,27 @@ const calculateAndSaveCoverage = async (req, res) => {
 
     console.log('Annotated Source Code:', annotatedSourceCode);
 
-    const savedCoverage = await saveTestCoverage(moduleName, unitTestCoverage, automationTestCoverage, annotatedSourceCode, sourceFilePath);
-    res.status(201).json({ message: 'Test coverage calculated and saved successfully', coverage: savedCoverage });
+    // Create a new instance for each upload
+    const newCoverage = new TestCoverage({
+      moduleName,
+      unitTestLineCoverage: unitTestCoverage.lineCoverage,
+      unitTestBranchCoverage: unitTestCoverage.branchCoverage,
+      automationLineCoverage: automationTestCoverage.lineCoverage,
+      automationBranchCoverage: automationTestCoverage.branchCoverage,
+      totalLineCoverage: (unitTestCoverage.lineCoverage + automationTestCoverage.lineCoverage) / 2,
+      totalBranchCoverage: (unitTestCoverage.branchCoverage + automationTestCoverage.branchCoverage) / 2,
+      sourceCode: await fs.readFile(sourceFilePath, 'utf8'), // Read source code
+      annotatedSourceCode,
+      totalLines: unitTestCoverage.totalLines + automationTestCoverage.totalLines,
+      executedLines: unitTestCoverage.executedLines + automationTestCoverage.executedLines,
+      totalBranches: unitTestCoverage.totalBranches + automationTestCoverage.totalBranches,
+      executedBranches: unitTestCoverage.executedBranches + automationTestCoverage.executedBranches,
+    });
+
+    console.log('New Coverage to Save:', newCoverage);
+
+    await newCoverage.save();
+    res.status(201).json({ message: 'Test coverage calculated and saved successfully', coverage: newCoverage });
 
     // Delay deletion of files until after the response
     try {
@@ -152,6 +179,7 @@ const calculateAndSaveCoverage = async (req, res) => {
     res.status(500).json({ error: 'Error calculating and saving test coverage' });
   }
 };
+
 
 const getTestCoverage = async (req, res) => {
   try {

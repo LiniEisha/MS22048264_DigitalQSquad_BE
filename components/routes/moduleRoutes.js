@@ -5,6 +5,7 @@ const path = require('path');
 const { calculateCyclomaticComplexity, calculateWeightedCompositeComplexity } = require('../controllers/com');
 const TestCoverage = require('../models/testCoverageModel');
 const ComplexityResult = require('../models/complexityModel');
+const { calculateAndSaveCoverage, getTestCoverage, getCoverageById } = require('../controllers/testCoverageController');
 const router = express.Router();
 
 // Configure multer storage to retain original filenames
@@ -58,7 +59,11 @@ router.post('/upload', upload.fields([
       totalLineCoverage: 0,
       totalBranchCoverage: 0,
       sourceCode,  // Save source code
-      annotatedSourceCode: '' // Initialize the field
+      annotatedSourceCode: '' ,// Initialize the field
+      totalLines: 0,
+      executedLines: 0,
+      totalBranches: 0,
+      executedBranches: 0,
     });
 
     await newModule.save();
@@ -134,11 +139,25 @@ router.post('/upload', upload.fields([
             const coverageSummary = require(coverageSummaryPath);
             const coverageReportPath = path.join(coverageDir, 'coverage-final.json');
             const coverageReport = require(coverageReportPath);
+
+            const totalLines = coverageSummary.total.lines.total;
+            const executedLines = coverageSummary.total.lines.covered;
+            const totalBranches = coverageSummary.total.branches.total;
+            const executedBranches = coverageSummary.total.branches.covered;
+            console.log('Total Lines:', totalLines);
+            console.log('Executed Lines:', executedLines);
+            console.log('Total Branches:', totalBranches);
+            console.log('Executed Branches:', executedBranches);
+
             const { lines, branches } = coverageSummary.total;
             resolve({
               lineCoverage: lines.pct,
               branchCoverage: branches.pct,
               report: coverageReport, // Ensure the report is included
+              totalLines,
+              executedLines,
+              totalBranches,
+              executedBranches,
             });
           } catch (coverageError) {
             console.error('Coverage file read error:', coverageError);
@@ -148,8 +167,8 @@ router.post('/upload', upload.fields([
       });
     };
 
-    let unitTestCoverage = { lineCoverage: 0, branchCoverage: 0 };
-    let automationTestCoverage = { lineCoverage: 0, branchCoverage: 0 };
+    let unitTestCoverage = { lineCoverage: 0, branchCoverage: 0, totalLines: 0, executedLines: 0, totalBranches: 0, executedBranches: 0 };
+    let automationTestCoverage = { lineCoverage: 0, branchCoverage: 0, totalLines: 0, executedLines: 0, totalBranches: 0, executedBranches: 0 };
 
     // Calculate Unit Test Coverage
     if (unitTestFile) {
@@ -207,6 +226,10 @@ router.post('/upload', upload.fields([
     newModule.totalLineCoverage = totalLineCoverage;
     newModule.totalBranchCoverage = totalBranchCoverage;
     newModule.annotatedSourceCode = annotatedSourceCode;
+    newModule.totalLines = unitTestCoverage.totalLines + automationTestCoverage.totalLines;
+    newModule.executedLines = unitTestCoverage.executedLines + automationTestCoverage.executedLines;
+    newModule.totalBranches = unitTestCoverage.totalBranches + automationTestCoverage.totalBranches;
+    newModule.executedBranches = unitTestCoverage.executedBranches + automationTestCoverage.executedBranches;
 
     // Save the updated newModule with the calculated coverage values
     await newModule.save();
@@ -233,5 +256,8 @@ router.post('/upload', upload.fields([
     }
   }
 });
+
+router.get('/coverage', getTestCoverage);
+router.get('/coverage/:id', getCoverageById);
 
 module.exports = router;
