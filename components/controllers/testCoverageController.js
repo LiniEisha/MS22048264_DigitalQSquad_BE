@@ -22,20 +22,24 @@ const calculateTestCoverage = async (testFilePath, suiteType) => {
       console.log('stderr:', stderr);
 
       try {
-        const coverageSummary = require(path.join(testDir, 'coverage', 'coverage-summary.json'));
-        const coverageReport = require(path.join(testDir, 'coverage', 'coverage-final.json'));
-
-        // Log detailed coverage report
-        console.log('Coverage Summary:', JSON.stringify(coverageSummary, null, 2));
-        console.log('Coverage Report:', JSON.stringify(coverageReport, null, 2));
+        const coverageSummaryPath = path.join(testDir, 'coverage', 'coverage-summary.json');
+        const coverageSummary = require(coverageSummaryPath);
+        const coverageReportPath = path.join(testDir, 'coverage', 'coverage-final.json');
+        const coverageReport = require(coverageReportPath);
 
         const { lines, branches } = coverageSummary.total;
-        console.log('Branch Coverage:', branches.pct); // Log branch coverage
+
+        console.log('Line Coverage:', lines.pct);
+        console.log('Branch Coverage:', branches.pct);
 
         resolve({
           lineCoverage: lines.pct,
           branchCoverage: branches.pct,
           report: coverageReport,
+          totalLines: coverageSummary.total.lines.total,
+          executedLines: coverageSummary.total.lines.covered,
+          totalBranches: coverageSummary.total.branches.total,
+          executedBranches: coverageSummary.total.branches.covered,
         });
       } catch (coverageError) {
         console.error('Coverage file read error:', coverageError);
@@ -44,7 +48,6 @@ const calculateTestCoverage = async (testFilePath, suiteType) => {
     });
   });
 };
-
 
 const saveTestCoverage = async (moduleName, unitTestCoverage, automationTestCoverage, annotatedSourceCode, sourceCodePath) => {
   const totalLineCoverage = (unitTestCoverage.lineCoverage + automationTestCoverage.lineCoverage) / 2;
@@ -62,6 +65,10 @@ const saveTestCoverage = async (moduleName, unitTestCoverage, automationTestCove
     totalBranchCoverage,
     sourceCode,  // Save source code
     annotatedSourceCode,  // Save annotated source code
+    totalLines: unitTestCoverage.totalLines + automationTestCoverage.totalLines,
+    executedLines: unitTestCoverage.executedLines + automationTestCoverage.executedLines,
+    totalBranches: unitTestCoverage.totalBranches + automationTestCoverage.totalBranches,
+    executedBranches: unitTestCoverage.executedBranches + automationTestCoverage.executedBranches,
   });
 
   console.log('New Coverage to Save:', newCoverage);
@@ -110,8 +117,9 @@ const calculateAndSaveCoverage = async (req, res) => {
       return res.status(400).send({ error: 'Source file is mandatory.' });
     }
 
-    let unitTestCoverage = { lineCoverage: 0, branchCoverage: 0, report: {} };
-    let automationTestCoverage = { lineCoverage: 0, branchCoverage: 0, report: {} };
+    // Initialize coverage variables for each request to ensure no carryover
+    let unitTestCoverage = { lineCoverage: 0, branchCoverage: 0, report: {}, totalLines: 0, executedLines: 0, totalBranches: 0, executedBranches: 0 };
+    let automationTestCoverage = { lineCoverage: 0, branchCoverage: 0, report: {}, totalLines: 0, executedLines: 0, totalBranches: 0, executedBranches: 0 };
 
     if (unitTestFilePath) {
       console.log(`Unit test path: ${unitTestFilePath}`);
@@ -160,7 +168,7 @@ const calculateAndSaveCoverage = async (req, res) => {
     await newCoverage.save();
     res.status(201).json({ message: 'Test coverage calculated and saved successfully', coverage: newCoverage });
 
-    // Delay deletion of files until after the response
+    // Ensure cleanup of temporary files
     try {
       if (sourceFilePath && await fs.access(sourceFilePath)) {
         await fs.unlink(sourceFilePath);

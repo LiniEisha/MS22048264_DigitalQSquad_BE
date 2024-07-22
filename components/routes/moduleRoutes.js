@@ -50,25 +50,6 @@ router.post('/upload', upload.fields([
     const sourceCode = await fs.readFile(sourceFilePath, 'utf8');
     console.log('Source code read successfully');
 
-    const newModule = new TestCoverage({
-      moduleName,
-      unitTestLineCoverage: 0,
-      unitTestBranchCoverage: 0,
-      automationLineCoverage: 0,
-      automationBranchCoverage: 0,
-      totalLineCoverage: 0,
-      totalBranchCoverage: 0,
-      sourceCode,  // Save source code
-      annotatedSourceCode: '' ,// Initialize the field
-      totalLines: 0,
-      executedLines: 0,
-      totalBranches: 0,
-      executedBranches: 0,
-    });
-
-    await newModule.save();
-    console.log('Module saved successfully:', newModule);
-
     // Complexity Calculation
     try {
       console.log('Starting complexity calculation');
@@ -112,17 +93,17 @@ router.post('/upload', upload.fields([
       const testFileName = path.basename(testFilePath);
       const sourceFileName = path.basename(sourceFilePath);
       const targetSourcePath = path.join(testDir, sourceFileName);
-    
+
       console.log(`Copying source file to ${suiteType} directory:`, targetSourcePath);
       await fs.copyFile(sourceFilePath, targetSourcePath);
-    
+
       console.log(`Calculating ${suiteType} coverage`);
       const coverageDir = path.join(testDir, 'coverage');
       await fs.mkdir(coverageDir, { recursive: true });
-    
+
       const command = `npx nyc --report-dir=${coverageDir} --reporter=json-summary --reporter=json --reporter=html npx mocha ${testFileName} --no-interactive`;
       console.log('Coverage command:', command);
-    
+
       const { exec } = require('child_process');
       return new Promise((resolve, reject) => {
         exec(command, { cwd: testDir }, async (error, stdout, stderr) => {
@@ -131,9 +112,9 @@ router.post('/upload', upload.fields([
             console.log('stderr:', stderr);
             return reject(error);
           }
-    
+
           console.log('stdout:', stdout);
-    
+
           try {
             const coverageSummaryPath = path.join(coverageDir, 'coverage-summary.json');
             const coverageSummary = require(coverageSummaryPath);
@@ -219,17 +200,21 @@ router.post('/upload', upload.fields([
 
     // Annotate and Save Source Code
     const annotatedSourceCode = await annotateSourceCode(sourceFilePath, unitTestCoverage.report);
-    newModule.unitTestLineCoverage = unitTestCoverage.lineCoverage;
-    newModule.unitTestBranchCoverage = unitTestCoverage.branchCoverage;
-    newModule.automationLineCoverage = automationTestCoverage.lineCoverage;
-    newModule.automationBranchCoverage = automationTestCoverage.branchCoverage;
-    newModule.totalLineCoverage = totalLineCoverage;
-    newModule.totalBranchCoverage = totalBranchCoverage;
-    newModule.annotatedSourceCode = annotatedSourceCode;
-    newModule.totalLines = unitTestCoverage.totalLines + automationTestCoverage.totalLines;
-    newModule.executedLines = unitTestCoverage.executedLines + automationTestCoverage.executedLines;
-    newModule.totalBranches = unitTestCoverage.totalBranches + automationTestCoverage.totalBranches;
-    newModule.executedBranches = unitTestCoverage.executedBranches + automationTestCoverage.executedBranches;
+    const newModule = new TestCoverage({
+      moduleName,
+      unitTestLineCoverage: unitTestCoverage.lineCoverage,
+      unitTestBranchCoverage: unitTestCoverage.branchCoverage,
+      automationLineCoverage: automationTestCoverage.lineCoverage,
+      automationBranchCoverage: automationTestCoverage.branchCoverage,
+      totalLineCoverage,
+      totalBranchCoverage,
+      sourceCode,  // Save source code
+      annotatedSourceCode,  // Save annotated source code
+      totalLines: unitTestCoverage.totalLines + automationTestCoverage.totalLines,
+      executedLines: unitTestCoverage.executedLines + automationTestCoverage.executedLines,
+      totalBranches: unitTestCoverage.totalBranches + automationTestCoverage.totalBranches,
+      executedBranches: unitTestCoverage.executedBranches + automationTestCoverage.executedBranches,
+    });
 
     // Save the updated newModule with the calculated coverage values
     await newModule.save();
