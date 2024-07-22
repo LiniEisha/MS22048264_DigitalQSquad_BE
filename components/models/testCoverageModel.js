@@ -1,4 +1,3 @@
-// models/testCoverageModel.js
 const mongoose = require('mongoose');
 
 const TestCoverageSchema = new mongoose.Schema({
@@ -10,6 +9,7 @@ const TestCoverageSchema = new mongoose.Schema({
   totalLineCoverage: { type: Number, required: true },
   totalBranchCoverage: { type: Number, required: true },
   sourceCode: { type: String, required: true },
+  annotatedSourceCode: {type: String},
 });
 
 module.exports = mongoose.model('TestCoverage', TestCoverageSchema);

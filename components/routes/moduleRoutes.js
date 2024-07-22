@@ -58,6 +58,7 @@ router.post('/upload', upload.fields([
       totalLineCoverage: 0,
       totalBranchCoverage: 0,
       sourceCode,  // Save source code
+      annotatedSourceCode: '' // Initialize the field
     });
 
     await newModule.save();
@@ -79,7 +80,7 @@ router.post('/upload', upload.fields([
         complexityLevel = "Low";
       } else if (weightedCompositeComplexity <= 182.58) {
         complexityLevel = "Moderate";
-      } else if (weightedCompositeCompositeComplexity <= 466) {
+      } else if (weightedCompositeComplexity <= 466) {
         complexityLevel = "Complex";
       } else {
         complexityLevel = "High Complex";
@@ -101,22 +102,22 @@ router.post('/upload', upload.fields([
     }
 
     // Test Coverage Calculation
-    const runCoverageCalculation = async (testFilePath, suiteType) => {
+    const runCoverageCalculation = async (testFilePath, suiteType, sourceFilePath) => {
       const testDir = path.dirname(testFilePath);
       const testFileName = path.basename(testFilePath);
-      const sourceFileName = path.basename(sourceFile.path);
+      const sourceFileName = path.basename(sourceFilePath);
       const targetSourcePath = path.join(testDir, sourceFileName);
-
+    
       console.log(`Copying source file to ${suiteType} directory:`, targetSourcePath);
       await fs.copyFile(sourceFilePath, targetSourcePath);
-
+    
       console.log(`Calculating ${suiteType} coverage`);
       const coverageDir = path.join(testDir, 'coverage');
       await fs.mkdir(coverageDir, { recursive: true });
-
-      const command = `npx nyc --report-dir=${coverageDir} --reporter=json-summary npx mocha ${testFileName} --no-interactive`;
+    
+      const command = `npx nyc --report-dir=${coverageDir} --reporter=json-summary --reporter=json --reporter=html npx mocha ${testFileName} --no-interactive`;
       console.log('Coverage command:', command);
-
+    
       const { exec } = require('child_process');
       return new Promise((resolve, reject) => {
         exec(command, { cwd: testDir }, async (error, stdout, stderr) => {
@@ -125,22 +126,23 @@ router.post('/upload', upload.fields([
             console.log('stderr:', stderr);
             return reject(error);
           }
-
+    
           console.log('stdout:', stdout);
-
+    
           try {
             const coverageSummaryPath = path.join(coverageDir, 'coverage-summary.json');
             const coverageSummary = require(coverageSummaryPath);
+            const coverageReportPath = path.join(coverageDir, 'coverage-final.json');
+            const coverageReport = require(coverageReportPath);
             const { lines, branches } = coverageSummary.total;
             resolve({
               lineCoverage: lines.pct,
               branchCoverage: branches.pct,
+              report: coverageReport, // Ensure the report is included
             });
           } catch (coverageError) {
             console.error('Coverage file read error:', coverageError);
             reject(coverageError);
-          } finally {
-            await fs.unlink(targetSourcePath);
           }
         });
       });
@@ -152,7 +154,7 @@ router.post('/upload', upload.fields([
     // Calculate Unit Test Coverage
     if (unitTestFile) {
       try {
-        unitTestCoverage = await runCoverageCalculation(unitTestFilePath, 'unit test');
+        unitTestCoverage = await runCoverageCalculation(unitTestFilePath, 'unit test', sourceFilePath);
         console.log('Unit test coverage:', unitTestCoverage);
       } catch (err) {
         console.error('Error calculating unit test coverage:', err.message);
@@ -162,7 +164,7 @@ router.post('/upload', upload.fields([
     // Calculate Automation Test Coverage
     if (automationFile) {
       try {
-        automationTestCoverage = await runCoverageCalculation(automationFilePath, 'automation test');
+        automationTestCoverage = await runCoverageCalculation(automationFilePath, 'automation test', sourceFilePath);
         console.log('Automation test coverage:', automationTestCoverage);
       } catch (err) {
         console.error('Error calculating automation test coverage:', err.message);
@@ -173,13 +175,38 @@ router.post('/upload', upload.fields([
     const totalLineCoverage = (unitTestCoverage.lineCoverage + automationTestCoverage.lineCoverage) / 2;
     const totalBranchCoverage = (unitTestCoverage.branchCoverage + automationTestCoverage.branchCoverage) / 2;
 
-    // Update the newModule object with the calculated coverage values
+    // Annotate Source Code
+    const annotateSourceCode = async (sourceCodePath, coverageReport) => {
+      const sourceCode = await fs.readFile(sourceCodePath, 'utf8');
+      const executedLines = coverageReport?.lines?.details;
+
+      if (!executedLines) {
+        console.error('No executed lines found in coverage report');
+        return sourceCode; // Return original source code if no details found
+      }
+
+      console.log('Executing lines:', executedLines); // Log executed lines
+
+      const annotatedLines = sourceCode.split('\n').map((line, index) => {
+        const lineNumber = index + 1;
+        const executed = executedLines[lineNumber] && executedLines[lineNumber].covered;
+        return executed ? `<mark>${line}</mark>` : line;
+      });
+
+      const annotatedSourceCode = annotatedLines.join('\n');
+      console.log('Annotated Source Code:', annotatedSourceCode); // Log annotated source code
+      return annotatedSourceCode;
+    };
+
+    // Annotate and Save Source Code
+    const annotatedSourceCode = await annotateSourceCode(sourceFilePath, unitTestCoverage.report);
     newModule.unitTestLineCoverage = unitTestCoverage.lineCoverage;
     newModule.unitTestBranchCoverage = unitTestCoverage.branchCoverage;
     newModule.automationLineCoverage = automationTestCoverage.lineCoverage;
     newModule.automationBranchCoverage = automationTestCoverage.branchCoverage;
     newModule.totalLineCoverage = totalLineCoverage;
     newModule.totalBranchCoverage = totalBranchCoverage;
+    newModule.annotatedSourceCode = annotatedSourceCode;
 
     // Save the updated newModule with the calculated coverage values
     await newModule.save();
@@ -192,13 +219,13 @@ router.post('/upload', upload.fields([
     res.status(500).send({ error: 'Error uploading files' });
   } finally {
     try {
-      if (sourceFilePath) {
+      if (sourceFilePath && await fs.access(sourceFilePath)) {
         await fs.unlink(sourceFilePath);
       }
-      if (unitTestFilePath) {
+      if (unitTestFilePath && await fs.access(unitTestFilePath)) {
         await fs.unlink(unitTestFilePath);
       }
-      if (automationFilePath) {
+      if (automationFilePath && await fs.access(automationFilePath)) {
         await fs.unlink(automationFilePath);
       }
     } catch (cleanupError) {

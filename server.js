@@ -45,5 +45,7 @@ app.use('/api/modules', moduleRoutes);
 app.use('/api/complexity', complexityRoutes); 
 app.use('/api/testCoverage', testCoverageRoutes);
 app.use('/api', moduleRoutes);
+app.use('/api', testCoverageRoutes);
+
 // Start server
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
