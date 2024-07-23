@@ -184,3 +184,15 @@ exports.getComplexityById = async (req, res) => {
     res.status(500).send('Server error');
   }
 };
+
+exports.getHighComplexModules = async (req, res) => {
+  try {
+    const highComplexModules = await ComplexityResult.find({
+      complexityLevel: { $in: ["Complex", "High Complex"] }
+    });
+    res.json(highComplexModules);
+  } catch (err) {
+    console.error('Error fetching high complexity modules:', err.message);
+    res.status(500).send('Server error');
+  }
+};

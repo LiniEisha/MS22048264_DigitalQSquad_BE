@@ -99,6 +99,10 @@ router.post('/upload', upload.fields([
 
       console.log(`Calculating ${suiteType} coverage`);
       const coverageDir = path.join(testDir, 'coverage');
+
+      // Delete previous coverage reports
+      await fs.rmdir(coverageDir, { recursive: true }).catch(() => {});
+
       await fs.mkdir(coverageDir, { recursive: true });
 
       const command = `npx nyc --report-dir=${coverageDir} --reporter=json-summary --reporter=json --reporter=html npx mocha ${testFileName} --no-interactive`;
