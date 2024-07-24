@@ -69,8 +69,10 @@ const calculateTestCoverage = async (testFilePath, suiteType) => {
 };
 
 const saveTestCoverage = async (moduleName, unitTestCoverage, automationTestCoverage, annotatedSourceCode, sourceCodePath) => {
-  const totalLineCoverage = (unitTestCoverage.lineCoverage + automationTestCoverage.lineCoverage) / 2;
-  const totalBranchCoverage = (unitTestCoverage.branchCoverage + automationTestCoverage.branchCoverage) / 2;
+  // const totalLineCoverage = (unitTestCoverage.lineCoverage + automationTestCoverage.lineCoverage) / 2;
+  // const totalBranchCoverage = (unitTestCoverage.branchCoverage + automationTestCoverage.branchCoverage) / 2;
+  const totalLineCoverage = unitTestCoverage.lineCoverage;
+  const totalBranchCoverage = unitTestCoverage.branchCoverage;
 
   const sourceCode = await fs.readFile(sourceCodePath, 'utf8');
 
@@ -151,6 +153,23 @@ const getTestCoverage = async (req, res) => {
   }
 };
 
+const getModulesWithLowCoverage = async (req, res) => {
+  console.log('Request to /low-coverage received');
+  try {
+    const lowCoverageModules = await TestCoverage.find({
+      $or: [
+        { unitTestLineCoverage: { $lt: 80 } },
+        { totalBranchCoverage: { $lt: 75 } }
+      ]
+    });
+    console.log('Low coverage modules fetched:', lowCoverageModules);
+    res.json(lowCoverageModules);
+  } catch (err) {
+    console.error('Error fetching modules with low coverage:', err);
+    res.status(500).send({ error: 'Internal Server Error', details: err.message });
+  }
+};
+
 const getCoverageById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -168,6 +187,7 @@ const getCoverageById = async (req, res) => {
   }
 };
 
+
 export {
   calculateTestCoverage,
   saveTestCoverage,
@@ -175,4 +195,5 @@ export {
   calculateAndSaveCoverage,
   getCoverageById,
   annotateSourceCode,
+  getModulesWithLowCoverage, 
 };

@@ -1,12 +1,12 @@
 import express from 'express';
-import { getTestCoverage, calculateAndSaveCoverage, getCoverageById, annotateSourceCode } from '../controllers/testCoverageController.js';
+import { getTestCoverage, calculateAndSaveCoverage, getCoverageById, annotateSourceCode,getModulesWithLowCoverage } from '../controllers/testCoverageController.js';
 import TestCoverage from '../models/testCoverageModel.js';
 const router = express.Router(); 
 
+router.get('/low-coverage', getModulesWithLowCoverage); 
 router.get('/', getTestCoverage);
 router.post('/calculate', calculateAndSaveCoverage);
 router.get('/:id', getCoverageById);  // Corrected route method
-
 
 router.get('/annotated-source/:id', async (req, res) => {
   try {
