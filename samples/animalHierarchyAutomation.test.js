@@ -1,23 +1,28 @@
 // File: animalHierarchyAutomation.test.js
-const puppeteer = require('puppeteer');
+import puppeteer from 'puppeteer';
+import { expect } from 'chai';
 
-async function animalHierarchyAutomation() {
-    const browser = await puppeteer.launch({ headless: false }); // Set headless: true for headless mode
-    const page = await browser.newPage();
+describe('Animal Hierarchy Automation Tests', function() {
+    this.timeout(10000); // Increase timeout to 10 seconds
 
-    // URL for the application
-    const url = 'http://localhost:3000/animalHierarchy';
+    it('should interact with the animal hierarchy system', async function() {
+        const browser = await puppeteer.launch({ headless: true });
+        const page = await browser.newPage();
 
-    // Go to the animal hierarchy page
-    await page.goto(url);
-    
-    // Example interaction with the page to verify the Animal hierarchy
-    // This would be specific to the UI of the application
-    // await page.click('button#showDogSound');
-    // const dogSound = await page.$eval('#dogSound', el => el.textContent);
-    // console.log(`Dog Sound: ${dogSound}`);
+        // URL for the animal hierarchy application
+        const url = 'http://localhost:4000/animalHierarchy';
 
-    await browser.close();
-}
+        // Go to the animal hierarchy page and wait for it to load
+        await page.goto(url, { waitUntil: 'networkidle2' });
 
-animalHierarchyAutomation().catch(console.error);
+        // Example interaction with the page to verify the Animal hierarchy
+        const dogSoundButton = await page.waitForSelector('button#showDogSound');
+        await dogSoundButton.click();
+        
+        const dogSound = await page.$eval('#dogSound', el => el.textContent);
+        console.log(`Dog Sound: ${dogSound}`);
+        expect(dogSound).to.include('barks');
+
+        await browser.close();
+    });
+});

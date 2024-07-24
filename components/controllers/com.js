@@ -1,6 +1,7 @@
-const acorn = require("acorn");
-const walk = require("acorn-walk");
-const ComplexityResult = require('../models/complexityModel');
+// File: com.js
+import { parse } from 'acorn';
+import * as walk from 'acorn-walk';
+import ComplexityResult from '../models/complexityModel.js';
 
 // Cyclomatic Complexity Calculation
 function cleanSourceCode(sourceCode) {
@@ -14,7 +15,7 @@ function calculateCyclomaticComplexity(sourceCode) {
   console.log('Cleaned Source Code:', sourceCode);
   let ast;
   try {
-    ast = acorn.parse(sourceCode, { ecmaVersion: 2020, sourceType: 'module' });
+    ast = parse(sourceCode, { ecmaVersion: 2020, sourceType: 'module' });
   } catch (error) {
     console.error('Error parsing source code for cyclomatic complexity:', error.message);
     throw error;
@@ -44,72 +45,71 @@ function tokenize(line) {
 }
 
 function calculateWt(line, nestingLevel, inheritanceLevel) {
-    const controlStructureWeights = {
-        'if': 1, 'else': 1, 'for': 2, 'while': 2, 'do': 2, 'switch': 1,
-        'try': 0, 'catch': 1, 'finally': 1
-    };
-    let wc = 0;
-    let wi = inheritanceLevel;
-    const tokens = tokenize(line);
-    for (let token of tokens) {
-        if (controlStructureWeights[token] !== undefined) {
-            wc += controlStructureWeights[token];
-        } else if (token === 'case') {
-            wc += 1;
-        }
+  const controlStructureWeights = {
+    'if': 1, 'else': 1, 'for': 2, 'while': 2, 'do': 2, 'switch': 1,
+    'try': 0, 'catch': 1, 'finally': 1
+  };
+  let wc = 0;
+  let wi = inheritanceLevel;
+  const tokens = tokenize(line);
+  for (let token of tokens) {
+    if (controlStructureWeights[token] !== undefined) {
+      wc += controlStructureWeights[token];
+    } else if (token === 'case') {
+      wc += 1;
     }
-    let wn = nestingLevel;
-    let wt = wc + wn + wi;
-    console.log('wt:', wt);
-    return wt;
+  }
+  let wn = nestingLevel;
+  let wt = wc + wn + wi;
+  console.log('wt:', wt);
+  return wt;
 }
 
 function calculateWcc(line, nestingLevel, inheritanceLevel) {
-    const tokens = tokenize(line);
-    const s = tokens.length;
-    const wt = calculateWt(line, nestingLevel, inheritanceLevel);
-    console.log('Tokens:', tokens);
-    console.log('S:', s);
-    console.log('Wt:', wt);
-    return s * wt;
+  const tokens = tokenize(line);
+  const s = tokens.length;
+  const wt = calculateWt(line, nestingLevel, inheritanceLevel);
+  console.log('Tokens:', tokens);
+  console.log('S:', s);
+  console.log('Wt:', wt);
+  return s * wt;
 }
 
 function processCode(code) {
-    const lines = code.split('\n');
-    let wccValues = [];
-    let nestingLevel = 0;
-    let inheritanceLevel = 0;
-    for (let line of lines) {
-        let strippedLine = line.trim();
-        if (strippedLine.startsWith('class')) {
-            inheritanceLevel++;
-        } else if (strippedLine.startsWith('}')) {
-            nestingLevel--;
-        }
-        let wcc = calculateWcc(line, nestingLevel, inheritanceLevel);
-        wccValues.push(wcc);
-        console.log('Wcc for line:', wcc);
-        if (strippedLine.endsWith('{')) {
-            nestingLevel++;
-        }
+  const lines = code.split('\n');
+  let wccValues = [];
+  let nestingLevel = 0;
+  let inheritanceLevel = 0;
+  for (let line of lines) {
+    let strippedLine = line.trim();
+    if (strippedLine.startsWith('class')) {
+      inheritanceLevel++;
+    } else if (strippedLine.startsWith('}')) {
+      nestingLevel--;
     }
-    console.log('Wcc Values:', wccValues);
-    return wccValues;
+    let wcc = calculateWcc(line, nestingLevel, inheritanceLevel);
+    wccValues.push(wcc);
+    console.log('Wcc for line:', wcc);
+    if (strippedLine.endsWith('{')) {
+      nestingLevel++;
+    }
+  }
+  console.log('Wcc Values:', wccValues);
+  return wccValues;
 }
 
 function calculateWeightedCompositeComplexity(sourceCode) {
-    const wccValues = processCode(sourceCode);
-    const totalWcc = wccValues.reduce((acc, val) => acc + val, 0);
-    console.log('Total Wcc:', totalWcc);
-    return totalWcc;
+  const wccValues = processCode(sourceCode);
+  const totalWcc = wccValues.reduce((acc, val) => acc + val, 0);
+  console.log('Total Wcc:', totalWcc);
+  return totalWcc;
 }
 
 // Export the functions
-exports.calculateCyclomaticComplexity = calculateCyclomaticComplexity;
-exports.calculateWeightedCompositeComplexity = calculateWeightedCompositeComplexity;
+export { calculateCyclomaticComplexity, calculateWeightedCompositeComplexity };
 
 // Complexity Controller Methods
-exports.analyzeComplexity = async (req, res) => {
+export const analyzeComplexity = async (req, res) => {
   try {
     const { moduleName, sourceCode } = req.body;
 
@@ -157,7 +157,7 @@ exports.analyzeComplexity = async (req, res) => {
   }
 };
 
-exports.getResults = async (req, res) => {
+export const getResults = async (req, res) => {
   try {
     const results = await ComplexityResult.find();
     console.log('Fetched results:', results);
@@ -168,7 +168,7 @@ exports.getResults = async (req, res) => {
   }
 };
 
-exports.getComplexityById = async (req, res) => {
+export const getComplexityById = async (req, res) => {
   try {
     const { id } = req.params;
     console.log(`Fetching details for ID: ${id}`);
@@ -185,7 +185,7 @@ exports.getComplexityById = async (req, res) => {
   }
 };
 
-exports.getHighComplexModules = async (req, res) => {
+export const getHighComplexModules = async (req, res) => {
   try {
     const highComplexModules = await ComplexityResult.find({
       complexityLevel: { $in: ["Complex", "High Complex"] }

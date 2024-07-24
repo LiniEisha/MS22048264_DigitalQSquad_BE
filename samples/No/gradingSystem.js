@@ -82,4 +82,4 @@ class GradingSystem {
     }
 }
 
-module.exports = GradingSystem;
+export { GradingSystem };

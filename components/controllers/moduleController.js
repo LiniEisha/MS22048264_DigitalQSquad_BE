@@ -1,8 +1,12 @@
-const Module = require('../models/Module');
-const fs = require('fs').promises;
-const path = require('path');
+// const Module = require('../models/Module');
+// const fs = require('fs').promises;
+// const path = require('path');
 
-exports.uploadModule = async (req, res) => {
+import Module from '../models/Module.js';
+import fs from 'fs/promises';
+import path from 'path';
+
+export const uploadModule = async (req, res) => {
   try {
     const { moduleName } = req.body;
     const sourceFile = req.files.sourceCode ? req.files.sourceCode[0] : null;

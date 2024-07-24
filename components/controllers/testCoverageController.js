@@ -1,17 +1,23 @@
-const path = require('path');
-const { exec } = require('child_process');
-const TestCoverage = require('../models/testCoverageModel');
-const fs = require('fs').promises;
+// File: testCoverageController.js
+import path from 'path';
+import { exec } from 'child_process';
+import TestCoverage from '../models/testCoverageModel.js';
+import fs from 'fs/promises';
 
 const calculateTestCoverage = async (testFilePath, suiteType) => {
   const testDir = path.dirname(testFilePath);
   const testFileName = path.basename(testFilePath);
+  const coverageDir = path.join(testDir, 'coverage');
+
+  console.log(`Calculating ${suiteType} coverage`);
+  await fs.rm(coverageDir, { recursive: true, force: true }).catch(() => {});
+  await fs.mkdir(coverageDir, { recursive: true });
+
+  const command = `npx nyc --report-dir=${coverageDir} --reporter=json-summary --reporter=json --reporter=html mocha --require @babel/register ${testFileName} --no-interactive`;
+  console.log('Coverage command:', command);
+
   return new Promise((resolve, reject) => {
-    const command = `npx nyc --report-dir=${testDir}/coverage --reporter=json-summary --reporter=json --reporter=html npx mocha ${testFileName}`;
-
-    console.log('Coverage command:', command);
-
-    exec(command, { cwd: testDir }, (error, stdout, stderr) => {
+    exec(command, { cwd: testDir }, async (error, stdout, stderr) => {
       if (error) {
         console.error('exec error:', error);
         console.log('stderr:', stderr);
@@ -22,24 +28,37 @@ const calculateTestCoverage = async (testFilePath, suiteType) => {
       console.log('stderr:', stderr);
 
       try {
-        const coverageSummaryPath = path.join(testDir, 'coverage', 'coverage-summary.json');
-        const coverageSummary = require(coverageSummaryPath);
-        const coverageReportPath = path.join(testDir, 'coverage', 'coverage-final.json');
-        const coverageReport = require(coverageReportPath);
+        const coverageSummaryPath = path.join(coverageDir, 'coverage-summary.json');
+        const coverageReportPath = path.join(coverageDir, 'coverage-final.json');
 
-        const { lines, branches } = coverageSummary.total;
+        const coverageSummaryExists = await fs.access(coverageSummaryPath).then(() => true).catch(() => false);
+        const coverageReportExists = await fs.access(coverageReportPath).then(() => true).catch(() => false);
 
-        console.log('Line Coverage:', lines.pct);
-        console.log('Branch Coverage:', branches.pct);
+        if (!coverageSummaryExists || !coverageReportExists) {
+          console.error('Coverage files not found');
+          return reject(new Error('Coverage files not found'));
+        }
+
+        const coverageSummary = JSON.parse(await fs.readFile(coverageSummaryPath, 'utf8'));
+        const coverageReport = JSON.parse(await fs.readFile(coverageReportPath, 'utf8'));
+
+        const totalLines = coverageSummary.total.lines.total;
+        const executedLines = coverageSummary.total.lines.covered;
+        const totalBranches = coverageSummary.total.branches.total;
+        const executedBranches = coverageSummary.total.branches.covered;
+        console.log('Total Lines:', totalLines);
+        console.log('Executed Lines:', executedLines);
+        console.log('Total Branches:', totalBranches);
+        console.log('Executed Branches:', executedBranches);
 
         resolve({
-          lineCoverage: lines.pct,
-          branchCoverage: branches.pct,
+          lineCoverage: coverageSummary.total.lines.pct || 0,
+          branchCoverage: coverageSummary.total.branches.pct || 0,
           report: coverageReport,
-          totalLines: coverageSummary.total.lines.total,
-          executedLines: coverageSummary.total.lines.covered,
-          totalBranches: coverageSummary.total.branches.total,
-          executedBranches: coverageSummary.total.branches.covered,
+          totalLines: totalLines || 0,
+          executedLines: executedLines || 0,
+          totalBranches: totalBranches || 0,
+          executedBranches: executedBranches || 0,
         });
       } catch (coverageError) {
         console.error('Coverage file read error:', coverageError);
@@ -57,18 +76,18 @@ const saveTestCoverage = async (moduleName, unitTestCoverage, automationTestCove
 
   const newCoverage = new TestCoverage({
     moduleName,
-    unitTestLineCoverage: unitTestCoverage.lineCoverage,
-    unitTestBranchCoverage: unitTestCoverage.branchCoverage,
-    automationLineCoverage: automationTestCoverage.lineCoverage,
-    automationBranchCoverage: automationTestCoverage.branchCoverage,
-    totalLineCoverage,
-    totalBranchCoverage,
-    sourceCode,  // Save source code
-    annotatedSourceCode,  // Save annotated source code
-    totalLines: unitTestCoverage.totalLines + automationTestCoverage.totalLines,
-    executedLines: unitTestCoverage.executedLines + automationTestCoverage.executedLines,
-    totalBranches: unitTestCoverage.totalBranches + automationTestCoverage.totalBranches,
-    executedBranches: unitTestCoverage.executedBranches + automationTestCoverage.executedBranches,
+    unitTestLineCoverage: unitTestCoverage.lineCoverage || 0,
+    unitTestBranchCoverage: unitTestCoverage.branchCoverage || 0,
+    automationLineCoverage: automationTestCoverage.lineCoverage || 0,
+    automationBranchCoverage: automationTestCoverage.branchCoverage || 0,
+    totalLineCoverage: totalLineCoverage || 0,
+    totalBranchCoverage: totalBranchCoverage || 0,
+    sourceCode,
+    annotatedSourceCode,
+    totalLines: unitTestCoverage.totalLines + automationTestCoverage.totalLines || 0,
+    executedLines: unitTestCoverage.executedLines + automationTestCoverage.executedLines || 0,
+    totalBranches: unitTestCoverage.totalBranches + automationTestCoverage.totalBranches || 0,
+    executedBranches: unitTestCoverage.executedBranches + automationTestCoverage.executedBranches || 0,
   });
 
   console.log('New Coverage to Save:', newCoverage);
@@ -76,6 +95,29 @@ const saveTestCoverage = async (moduleName, unitTestCoverage, automationTestCove
   await newCoverage.save();
   return newCoverage;
 };
+
+async function calculateAndSaveCoverage(moduleName, sourceFilePath, unitTestFilePath, automationFilePath) {
+  const unitTestCoverage = unitTestFilePath ? await calculateTestCoverage(unitTestFilePath, 'unit test') : {
+    lineCoverage: 0,
+    branchCoverage: 0,
+    totalLines: 0,
+    executedLines: 0,
+    totalBranches: 0,
+    executedBranches: 0
+  };
+
+  const automationTestCoverage = automationFilePath ? await calculateTestCoverage(automationFilePath, 'automation test') : {
+    lineCoverage: 0,
+    branchCoverage: 0,
+    totalLines: 0,
+    executedLines: 0,
+    totalBranches: 0,
+    executedBranches: 0
+  };
+
+  const annotatedSourceCode = await annotateSourceCode(sourceFilePath, unitTestCoverage.report);
+  return await saveTestCoverage(moduleName, unitTestCoverage, automationTestCoverage, annotatedSourceCode, sourceFilePath);
+}
 
 const annotateSourceCode = async (sourceCodePath, coverageReport) => {
   const sourceCode = await fs.readFile(sourceCodePath, 'utf8');
@@ -98,60 +140,6 @@ const annotateSourceCode = async (sourceCodePath, coverageReport) => {
   console.log('Annotated Source Code:', annotatedSourceCode); // Log annotated source code
   return annotatedSourceCode;
 };
-
-async function calculateAndSaveCoverage(moduleName, sourceFilePath, unitTestFilePath, automationFilePath) {
-  const coverageDir = path.join(path.dirname(sourceFilePath), 'coverage');
-
-  const readCoverageSummary = async () => {
-    const coverageSummaryPath = path.join(coverageDir, 'coverage-summary.json');
-    try {
-      const coverageSummary = require(coverageSummaryPath);
-      return coverageSummary;
-    } catch (error) {
-      console.error('Error reading coverage summary:', error.message);
-      return null;
-    }
-  };
-
-  const readCoverageFinal = async () => {
-    const coverageFinalPath = path.join(coverageDir, 'coverage-final.json');
-    try {
-      const coverageFinal = require(coverageFinalPath);
-      return coverageFinal;
-    } catch (error) {
-      console.error('Error reading coverage final:', error.message);
-      return {};
-    }
-  };
-
-  const unitTestCoverage = await runCoverageCalculation(unitTestFilePath, 'unit test', sourceFilePath);
-  const automationTestCoverage = await runCoverageCalculation(automationFilePath, 'automation test', sourceFilePath);
-
-  const totalLineCoverage = (unitTestCoverage.lineCoverage + automationTestCoverage.lineCoverage) / 2;
-  const totalBranchCoverage = (unitTestCoverage.branchCoverage + automationTestCoverage.branchCoverage) / 2;
-
-  const newModule = new TestCoverage({
-    moduleName,
-    unitTestLineCoverage: unitTestCoverage.lineCoverage,
-    unitTestBranchCoverage: unitTestCoverage.branchCoverage,
-    automationLineCoverage: automationTestCoverage.lineCoverage,
-    automationBranchCoverage: automationTestCoverage.branchCoverage,
-    totalLineCoverage,
-    totalBranchCoverage,
-    sourceCode: await fs.readFile(sourceFilePath, 'utf8'),
-    annotatedSourceCode: await annotateSourceCode(sourceFilePath, unitTestCoverage.report),
-    totalLines: unitTestCoverage.totalLines + automationTestCoverage.totalLines,
-    executedLines: unitTestCoverage.executedLines + automationTestCoverage.executedLines,
-    totalBranches: unitTestCoverage.totalBranches + automationTestCoverage.totalBranches,
-    executedBranches: unitTestCoverage.executedBranches + automationTestCoverage.executedBranches,
-  });
-
-  await newModule.save();
-  console.log('Test coverage saved:', newModule);
-
-  return newModule;
-}
-
 
 const getTestCoverage = async (req, res) => {
   try {
@@ -180,7 +168,7 @@ const getCoverageById = async (req, res) => {
   }
 };
 
-module.exports = {
+export {
   calculateTestCoverage,
   saveTestCoverage,
   getTestCoverage,

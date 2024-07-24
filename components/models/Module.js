@@ -1,5 +1,6 @@
 // Module.js
-const mongoose = require('mongoose');
+// const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const ModuleSchema = new mongoose.Schema({
   moduleName: {
@@ -30,4 +31,5 @@ const ModuleSchema = new mongoose.Schema({
   },
 });
 
-module.exports = mongoose.model('Module', ModuleSchema);
+export default mongoose.model('Module', ModuleSchema);
+// module.exports = mongoose.model('Module', ModuleSchema);

@@ -1,15 +1,20 @@
-// server.js
-const express = require('express');
-const mongoose = require('mongoose');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const path = require('path');
-const moduleRoutes = require('./components/routes/moduleRoutes');
-const complexityRoutes = require('./components/routes/complexityRoutes');
-const testCoverageRoutes = require('./components/routes/testCoverageRoutes');
+// File: server.js
+import express from 'express';
+import mongoose from 'mongoose';
+import bodyParser from 'body-parser';
+import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import moduleRoutes from './components/routes/moduleRoutes.js';
+import complexityRoutes from './components/routes/complexityRoutes.js';
+import testCoverageRoutes from './components/routes/testCoverageRoutes.js';
 
 const app = express();
 const PORT = 8000;
+
+// Convert import.meta.url to __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Placeholder for MongoDB URI
 const mongoURI = 'mongodb+srv://linieesk:4yHz3XESKwYaH0do@inputdata.xo6zb0m.mongodb.net/?retryWrites=true&w=majority&appName=inputData';

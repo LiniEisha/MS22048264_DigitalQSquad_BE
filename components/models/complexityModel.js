@@ -1,4 +1,5 @@
-const mongoose = require('mongoose');
+// const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const ComplexityResultSchema = new mongoose.Schema({
   moduleName: {
@@ -23,4 +24,5 @@ const ComplexityResultSchema = new mongoose.Schema({
   }
 });
 
-module.exports = mongoose.model('ComplexityResult', ComplexityResultSchema);
+export default mongoose.model('ComplexityResult', ComplexityResultSchema);
+// module.exports = mongoose.model('ComplexityResult', ComplexityResultSchema);

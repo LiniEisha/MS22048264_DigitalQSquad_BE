@@ -1,34 +1,38 @@
 // File: searchAutomation.test.js
-const puppeteer = require('puppeteer');
+import puppeteer from 'puppeteer';
+import { expect } from 'chai';
 
-async function searchAutomation() {
-    const browser = await puppeteer.launch({ headless: false }); // Set headless: true for headless mode
-    const page = await browser.newPage();
+describe('Search Automation Tests', function() {
+    this.timeout(10000); // Increase timeout to 10 seconds
 
-    // Define categories and their search URLs
-    const categories = {
-        articles: 'http://localhost:3000/search/articles?keyword=',
-        blogs: 'http://localhost:3000/search/blogs?keyword=',
-        forums: 'http://localhost:3000/search/forums?keyword='
-    };
+    it('should automate search and click results', async function() {
+        const browser = await puppeteer.launch({ headless: false }); // Set headless: true for headless mode
+        const page = await browser.newPage();
 
-    for (const category in categories) {
-        const url = categories[category] + 'keyword';
-        await page.goto(url);
-        await page.waitForSelector('.search-result', { timeout: 5000 });
+        // Define categories and their search URLs
+        const categories = {
+            articles: 'http://localhost:3000/search/articles?keyword=',
+            blogs: 'http://localhost:3000/search/blogs?keyword=',
+            forums: 'http://localhost:3000/search/forums?keyword='
+        };
 
-        const results = await page.$$('.search-result');
-        if (results.length > 0) {
-            await results[0].click();
-            await page.waitForSelector('.content', { timeout: 5000 });
-            const content = await page.$eval('.content', el => el.textContent);
-            console.log(`${category} content: ${content}`);
-        } else {
-            console.log(`No results found for ${category}`);
+        for (const category in categories) {
+            const url = categories[category] + 'keyword';
+            await page.goto(url);
+            await page.waitForSelector('.search-result', { timeout: 5000 });
+
+            const results = await page.$$('.search-result');
+            if (results.length > 0) {
+                await results[0].click();
+                await page.waitForSelector('.content', { timeout: 5000 });
+                const content = await page.$eval('.content', el => el.textContent);
+                console.log(`${category} content: ${content}`);
+                expect(content).to.be.a('string');
+            } else {
+                console.log(`No results found for ${category}`);
+            }
         }
-    }
 
-    await browser.close();
-}
-
-searchAutomation().catch(console.error);
+        await browser.close();
+    });
+});

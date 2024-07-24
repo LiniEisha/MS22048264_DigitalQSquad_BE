@@ -1,7 +1,7 @@
-const express = require('express');
-const { getTestCoverage, calculateAndSaveCoverage, getCoverageById, annotateSourceCode } = require('../controllers/testCoverageController');
-const Module = require('../models/Module');
-const router = express.Router();
+import express from 'express';
+import { getTestCoverage, calculateAndSaveCoverage, getCoverageById, annotateSourceCode } from '../controllers/testCoverageController.js';
+import TestCoverage from '../models/testCoverageModel.js';
+const router = express.Router(); 
 
 router.get('/', getTestCoverage);
 router.post('/calculate', calculateAndSaveCoverage);
@@ -24,4 +24,4 @@ router.get('/annotated-source/:id', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

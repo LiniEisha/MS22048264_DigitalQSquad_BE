@@ -23,8 +23,4 @@ async function searchForums(keyword) {
     ];
 }
 
-module.exports = {
-    searchArticles,
-    searchBlogs,
-    searchForums
-};
+export { searchArticles, searchBlogs, searchForums };

@@ -70,4 +70,4 @@ class Bird extends Animal {
     }
 }
 
-module.exports = { Animal, Dog, Bulldog, Beagle, Poodle, Cat, Bird };
+export { Animal, Dog, Bulldog, Beagle, Poodle, Cat, Bird };

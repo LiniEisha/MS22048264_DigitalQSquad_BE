@@ -8,4 +8,4 @@ function login(username, password) {
     }
 }
 
-module.exports = login;
+export { login };
